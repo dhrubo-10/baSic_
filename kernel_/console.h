@@ -1,3 +1,8 @@
+/*
+ * Console subsystem interface
+ * Provides the API for managing kernel consoles.
+ */
+
 #ifndef CONSOLE_H
 #define CONSOLE_H
 
