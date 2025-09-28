@@ -1,4 +1,4 @@
-# OS-dev 1.0
+# baSic_ 1.0
 
 A minimal **CLI-based experimental operating system**, built from scratch for low-level exploration of **kernel development, device interaction, and console rendering**.
 
