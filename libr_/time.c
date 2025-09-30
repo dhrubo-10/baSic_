@@ -1,7 +1,7 @@
 #include "lib/s_c.h"
-#include "library/string.h"
-#include "library/stdio.h"
-#include "library/nwindow.h"
+#include "lib/str.h"
+#include "lib/std.h"
+#include "lib/win.h"
 
 /*
 	Display time in a window

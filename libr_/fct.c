@@ -1,6 +1,6 @@
 #include "lib/s_c.h"
-#include "library/string.h"
-#include "library/nwindow.h"
+#include "lib/str.h"
+#include "lib/win.h"
 
 #define MAX_ITERS 2000
 

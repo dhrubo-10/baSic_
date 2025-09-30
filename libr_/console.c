@@ -1,11 +1,11 @@
-#include "library/string.h"
+#include "lib/str.h"
 #include "lib/s_c.h"
 #include "kernel/types.h"
-#include "library/stdio.h"
-#include "library/stdlib.h"
+#include "lib/std.h"
+#include "lib/stdlib.h"
 #include "kernel/ascii.h"
-#include "library/errno.h"
-#include "library/kernel_object_string.h"
+#include "lib/errno.h"
+#include "lib/kernel_object_string.h"
 
 #define MAX_LINE_LENGTH 1024
 

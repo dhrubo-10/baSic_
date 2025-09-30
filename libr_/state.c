@@ -1,7 +1,6 @@
 #include "lib/s_c.h"
-#include "library/string.h"
-#include "library/stdio.h"
-
+#include "lib/str.h"
+#include "lib/std.h"
 
 int main(int argc, char *argv[])
 {

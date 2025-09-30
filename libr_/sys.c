@@ -1,8 +1,8 @@
 #include "lib/s_c.h"
-#include "library/string.h"
-#include "library/stdio.h"
-#include "library/stdlib.h"
-#include "library/errno.h"
+#include "lib/str.h"
+#include "lib/std.h"
+#include "lib/stdlib.h"
+#include "lib/errno.h"
 
 /*
  * sys.c
