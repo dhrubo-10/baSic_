@@ -4,8 +4,8 @@
 #include "lib/std.h"
 #include "lib/stdlib.h"
 #include "kernel/ascii.h"
-#include "lib/errno.h"
-#include "lib/kernel_object_string.h"
+#include "lib/err.h"
+#include "lib/kernel_h.h"
 
 #define MAX_LINE_LENGTH 1024
 
@@ -29,7 +29,7 @@ void do_table()
 		if(type>=0) {
 			tag[0] = 0;
 			syscall_object_get_tag(i,tag,sizeof(tag));
-			printf("%d: %s (%s)\n",i,kernel_object_string(type),tag);
+			printf("%d: %s (%s)\n",i,kernel_def_std(type),tag);
 		}
 	}
 	printf("\n");

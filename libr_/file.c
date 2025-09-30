@@ -3,7 +3,7 @@
 #include "lib/std.h"
 #include "lib/kernel_object_string.h"
 #include "lib/win.h"
-#include "lib/errno.h"
+#include "lib/err.h"
 
 #define NWINDOWS 4
 

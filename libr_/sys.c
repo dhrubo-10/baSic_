@@ -2,7 +2,7 @@
 #include "lib/str.h"
 #include "lib/std.h"
 #include "lib/stdlib.h"
-#include "lib/errno.h"
+#include "lib/err.h"
 
 /*
  * sys.c
