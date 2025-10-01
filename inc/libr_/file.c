@@ -1,7 +1,7 @@
 #include "lib/s_c.h"
 #include "lib/str.h"
 #include "lib/std.h"
-#include "lib/kernel_object_string.h"
+#include "lib/kernel_h.h"
 #include "lib/win.h"
 #include "lib/err.h"
 
