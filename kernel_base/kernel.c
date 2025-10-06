@@ -1,27 +1,26 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "bios.h"
+#include "syscall.h"
 
 void kmain(void) {
-    bios_clear_screen();
-    bios_puts("\r\nTinyKernel v0.1\r\n");
-    bios_puts("BIOS support initialized.\r\n");
+    bios_puts("\r\nTinyKernel v0.2\r\n");
+    bios_puts("Testing syscalls...\r\n");
 
-    unsigned char boot_dl;
-    asm volatile ("movb %%dl, %0" : "=r"(boot_dl) :: );
-    bios_puts("Boot device: 0x");
-    bios_puthex8(boot_dl);
-    bios_puts("\r\n\r\nPress any key to halt...");
+    int fd = sys_creat("TEST.TXT");
+    if (fd >= 0) {
+        sys_write(fd, "Hello world!\r\n", 14);
+        sys_close(fd);
+        bios_puts("File written successfully.\r\n");
+    } else {
+        bios_puts("sys_creat() failed.\r\n");
+    }
+
+    bios_puts("\r\nPress any key to exit.");
     bios_wait_key();
-
-    asm volatile ("cli; hlt");
+    sys_exit(0);
 }
 
-void _start(void) __attribute__((noreturn));
-void _start(void) {
-    kmain();
-    for (;;) asm volatile("hlt");
-}
 
 
 
