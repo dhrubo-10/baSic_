@@ -1,35 +1,31 @@
 ASM = nasm
-CC = i686-elf-gcc
-LD = i686-elf-ld
+CC  = gcc
+LD  = ld
+CFLAGS = -m16 -ffreestanding -fno-stack-protector -fno-pic -nostdlib -nostdinc -Wall
+LDFLAGS = -Ttext 0x100
 
-CFLAGS = -m32 -ffreestanding -nostdlib -nostdinc -fno-pic -fno-pie -Wall -Wextra
-LDFLAGS = -Ttext 0x1000 --oformat binary
+OBJS = bios.o syscall.o kernel.o add.o
 
-BUILD = build
-BOOT = boot/boot.asm
-KERNEL = kernel/kernel.c
-BOOT_BIN = $(BUILD)/boot.bin
-KERNEL_BIN = $(BUILD)/kernel.bin
-OS_IMG = $(BUILD)/os.img
+all: kernel.bin
 
-all: $(OS_IMG)
+add.o: add.s
+	$(ASM) -f elf add.s -o add.o
 
-$(BUILD):
-	mkdir -p $(BUILD)
-$(BOOT_BIN): $(BOOT) | $(BUILD)
-	$(ASM) -f bin $< -o $@
+bios.o: bios.c bios.h
+	$(CC) $(CFLAGS) -c bios.c -o bios.o
 
-$(KERNEL_BIN): $(KERNEL) | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $(BUILD)/kernel.o
-	$(LD) $(LDFLAGS) $(BUILD)/kernel.o -o $@
-$(OS_IMG): $(BOOT_BIN) $(KERNEL_BIN)
-	cat $(BOOT_BIN) $(KERNEL_BIN) > $(OS_IMG)
-	@echo "[+] Bootable image created: $(OS_IMG)"
+syscall.o: syscall.c syscall.h
+	$(CC) $(CFLAGS) -c syscall.c -o syscall.o
 
-run: $(OS_IMG)
-	qemu-system-i386 -drive format=raw,file=$(OS_IMG)
+kernel.o: kernel.c bios.h syscall.h
+	$(CC) $(CFLAGS) -c kernel.c -o kernel.o
+
+kernel.bin: $(OBJS)
+	$(LD) -m elf_i386 $(LDFLAGS) -o kernel.bin $(OBJS)
 
 clean:
-	rm -rf $(BUILD)
+	rm -f *.o *.bin
+
 
 .PHONY: all clean run
+
