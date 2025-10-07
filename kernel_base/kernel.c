@@ -1,65 +1,38 @@
 #include <stdint.h>
-#include <stddef.h>
 #include "bios.h"
 #include "syscall.h"
 
+/* Kernel main */
 void kmain(void) {
-    bios_puts("\r\nTinyKernel v0.2\r\n");
-    bios_puts("Testing syscalls...\r\n");
+    bios_clear_screen();
+    bios_puts("\r\nbaSic_ kernel booted\r\n");
+    bios_puts("TinyKernel-style handoff OK.\r\n");
 
+    /* Show boot device (DL) if the bootloader preserved it (common convention). */
+    unsigned char boot_dl = 0xFF;
+    asm volatile ("movb %%dl, %0" : "=r"(boot_dl) :: );
+    bios_puts("Boot device (DL) = 0x");
+    bios_puthex8(boot_dl);
+    bios_puts("\r\n");
+
+    /* Try a filesystem syscall as a demo. If not implemented, the weak stub
+       returns -1 and we print a helpful message. */
+    bios_puts("Attempting sys_creat(\"TEST.TXT\")...\r\n");
     int fd = sys_creat("TEST.TXT");
     if (fd >= 0) {
-        sys_write(fd, "Hello world!\r\n", 14);
+        /* If a real FS exists, write sample text */
+        const char msg[] = "Hello from baSic_ kernel!\r\n";
+        sys_write(fd, msg, (uint16_t) (sizeof(msg) - 1));
         sys_close(fd);
         bios_puts("File written successfully.\r\n");
     } else {
-        bios_puts("sys_creat() failed.\r\n");
+        bios_puts("No filesystem/syscall backend available yet (sys_creat returned -1).\r\n");
     }
 
-    bios_puts("\r\nPress any key to exit.");
-    bios_wait_key();
-    sys_exit(0);
-}
-
-
-
-
-/* BIOS teletype: AH=0x0E, AL=char, BH=page(0), BL=color thats optional WEIRD */
-static inline void bios_putc(char c) {
-    /* Put character c in AL and AH=0x0E then call int 0x10 */
-    uint16_t ax = (uint8_t)c | (0x0E << 8);
-    asm volatile ("int $0x10" : : "a"(ax) : "cc", "memory");
-}
-
-static void bios_puts(const char *s) {
-    for (const char *p = s; *p; ++p) bios_putc(*p);
-}
-
-/* Wait for keypress using BIOS INT 0x16 (AH=0x00) */
-static inline void bios_wait_key(void) {
-    asm volatile ("xor %%ah, %%ah\n\tint $0x16" : : : "ax", "memory");
-}
-
-static void print_hex8(uint8_t v) {
-    const char *hex = "0123456789ABCDEF";
-    bios_putc(hex[(v >> 4) & 0xF]);
-    bios_putc(hex[v & 0xF]);
-}
-
-void kmain(void) {
-    /* Example status line */
-    bios_puts("\r\nTinyKernel v0.1\r\n");
-    bios_puts("Bootloader -> kernel handover OK.\r\n");
-
-    /* If the bootloader left the boot device in DL, show it (common convention). */
-    unsigned char boot_dl;
-    asm volatile ("movb %%dl, %0" : "=r"(boot_dl) :: );
-    bios_puts("Boot device (DL) = 0x");
-    print_hex8(boot_dl);
-    bios_puts("\r\n\r\nPress any key to halt...");
-
+    bios_puts("\r\nPress any key to halt.\r\n");
     bios_wait_key();
 
+    /* Halt forever */
     asm volatile (
         "cli\n\t"
     "1:\n\t"
@@ -68,10 +41,12 @@ void kmain(void) {
     );
 }
 
-/* Provide a tiny symbol so a linker can use it as an entry if desired. */
+/* Provide _start symbol so bootloaders that jump to _start will work. */
 void _start(void) __attribute__((noreturn));
 void _start(void) {
-    /* Some linkers jump to _start; just forward to kmain. */
+    /* Forward to the C kernel main */
     kmain();
-    for (;;) asm volatile("hlt");
+
+    /* If kmain returns for some reason, halt. */
+    for (;;) asm volatile("cli\n\thlt");
 }
