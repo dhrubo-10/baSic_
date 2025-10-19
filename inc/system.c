@@ -9,21 +9,21 @@
 #include <unistd.h>
 #endif
 
-/* Initialize core subsystems. For now: terminal, clock, fs (if present). */
+
 void system_init(void) {
     term_init();
     term_puts("System init...\n");
-    /* other init hooks (clock_init, fs_init, drivers) should be called by kernel main */
+ 
 }
 
-/* Reboot: hosted uses system reboot, freestanding uses BIOS reset attempt */
+
 void system_reboot(void) {
     term_puts("Rebooting...\n");
 #ifdef HOSTED
     fflush(stdout);
     system("reboot >/dev/null 2>&1 || echo 'Reboot not permitted in this test environment'\n");
 #else
-    /* Try triple fault / jump to BIOS warm reboot vector (very platform-specific) */
+
     asm volatile ("cli\n\tjmp 0xFFFF:0x0000");
 #endif
 }
@@ -38,7 +38,7 @@ void system_halt(void) {
 #endif
 }
 
-/* Minimal panic — prints message and halts */
+
 void panic(const char *msg) {
     term_puts("[PANIC] ");
     term_puts(msg);
@@ -46,10 +46,8 @@ void panic(const char *msg) {
     for (;;) asm volatile("cli\n\thlt");
 }
 
-/* Very tiny syscall stub (mock). On freestanding this will be fleshed out later. */
 long syscall(int num, ...) {
 #ifdef HOSTED
-    /* For hosted testing we can map some numbers to libc calls */
     va_list ap;
     va_start(ap, num);
     long ret = -1;
@@ -72,7 +70,6 @@ long syscall(int num, ...) {
     va_end(ap);
     return ret;
 #else
-    /* In-kernel stub: return -ENOSYS (-38) style, but we don't have errno — use -1 */
     (void)num;
     return -1;
 #endif

@@ -1,11 +1,8 @@
-// kernel/shell.c
-// Advanced shell: builtins + hosted external execution + simple pipes/redir
 #include "terminal.h"
 #include "tools.h"
 #include "system.h"
 #include "string.h"
-#include "../fs/fs.h"   /* optional: use when FREESTANDING */
-#include <stdlib.h>
+#include "../fs/fs.h"   
 #include <stdbool.h>
 
 #ifdef HOSTED
@@ -22,7 +19,6 @@
 static void run_builtin(char **argv);
 static bool is_builtin(const char *cmd);
 
-/* simple tokenizer (splits by whitespace; does not handle quotes) */
 static int tokenize(char *line, char **argv, int maxargs) {
     int argc = 0;
     char *p = line;
@@ -37,8 +33,7 @@ static int tokenize(char *line, char **argv, int maxargs) {
     return argc;
 }
 
-/* parse for a single '|' pipe dividing two commands.
-   returns index of pipe arg or -1 if none. */
+
 static int find_pipe(char **argv) {
     for (int i = 0; argv[i]; ++i) {
         if (strcmp(argv[i], "|") == 0) return i;
@@ -46,7 +41,6 @@ static int find_pipe(char **argv) {
     return -1;
 }
 
-/* parse redirection operators > and <. returns file name in out/in params */
 static void handle_redirections(char **argv, char **outfile, char **infile, bool *background) {
     *outfile = NULL; *infile = NULL; *background = false;
     for (int i = 0; argv[i]; ++i) {
@@ -70,7 +64,6 @@ static void handle_redirections(char **argv, char **outfile, char **infile, bool
     }
 }
 
-/* Run a command in HOSTED mode (supports pipes & redir) */
 #ifdef HOSTED
 static void run_command_hosted(char **argv) {
     if (!argv[0]) return;
@@ -79,7 +72,6 @@ static void run_command_hosted(char **argv) {
         return;
     }
 
-    /* check for pipe */
     int pipe_idx = find_pipe(argv);
     if (pipe_idx >= 0) {
         argv[pipe_idx] = NULL;
@@ -98,7 +90,7 @@ static void run_command_hosted(char **argv) {
         }
         pid_t pid2 = fork();
         if (pid2 == 0) {
-            /* right child -> reads from pipe */
+        
             dup2(fdpipe[0], STDIN_FILENO);
             close(fdpipe[0]); close(fdpipe[1]);
             execvp(right[0], right);
@@ -111,7 +103,6 @@ static void run_command_hosted(char **argv) {
         return;
     }
 
-    /* no pipe: simple redirection/background handling */
     char *outfile=NULL, *infile=NULL;
     bool background=false;
     handle_redirections(argv, &outfile, &infile, &background);
@@ -141,7 +132,7 @@ static void run_command_hosted(char **argv) {
 }
 #endif
 
-/* Run a command in FREESTANDING mode (builtins only) */
+
 static void run_command_freestanding(char **argv) {
     if (!argv[0]) return;
     if (is_builtin(argv[0])) {
@@ -166,12 +157,12 @@ void shell_main(void) {
         if (!fgets(line, sizeof(line), stdin)) break;
         line[strcspn(line, "\n")] = '\0';
 #else
-        term_input(line, sizeof(line)); /* term_input implemented in terminal.c for freestanding */
+        term_input(line, sizeof(line)); 
 #endif
         /* empty */
         if (!line[0]) continue;
 
-        /* quick split by '|' left-right (tokenize) */
+       
         int argc = tokenize(line, argv, MAX_ARGS);
         if (argc == 0) continue;
 
@@ -183,8 +174,7 @@ void shell_main(void) {
     }
 }
 
-/* ---- builtins ---- */
-/* minimal builtins: echo, clear, ls, time, uptime, help, reboot, shutdown, cat, mkdir, rmdir, touch, rm, cd, pwd */
+
 static void run_builtin(char **argv) {
     const char *cmd = argv[0];
     if (strcmp(cmd, "help")==0) {
