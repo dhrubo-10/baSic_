@@ -1,7 +1,7 @@
 #include "fs.h"
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
+#include <kernel_b/stdio.h>
+#include <kernel_b/string.h>
+#include <kernel_b/stdlib.h>
 
 extern file_t* fs_find_in_dir(file_t* dir, const char* name);
 
