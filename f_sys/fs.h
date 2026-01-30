@@ -10,6 +10,9 @@
 #define PERM_READ   0x04
 #define PERM_WRITE  0x02
 #define PERM_EXEC   0x01
+#define MAX_FILE_CONTENT 65536
+#define DEFAULT_FILE_PERM 0644
+#define DEFAULT_DIR_PERM  0755
 
 typedef enum {
     FILE_TYPE_REGULAR,
@@ -27,6 +30,21 @@ typedef enum {
     FS_ISO9660,
     FS_TMPFS
 } fs_type_t;
+typedef struct file_info {
+    char name[MAX_NAME_LEN];
+    file_type_t type;
+    uint32_t size;
+    time_t mtime;
+    uint32_t perms;
+    uint32_t uid;
+    uint32_t gid;
+} file_info_t;
+
+typedef struct dir_list {
+    file_info_t *entries;
+    int count;
+    int capacity;
+} dir_list_t;
 
 typedef struct file file_t;
 typedef struct mount mount_t;
@@ -181,5 +199,27 @@ int fs_mount(const char *source, const char *target, const char *fstype, unsigne
 int fs_umount(const char *target);
 int fs_sync(file_t *file);
 void fs_sync_all(void);
+int fs_touch(const char *name);
+int fs_rm(const char *name);
+int fs_write(const char *name, const char *data, size_t size);
+int fs_append(const char *name, const char *data, size_t size);
+char* fs_read(const char *name);
+void fs_cat(const char *name);
+void fs_ls(const char *path);
+void fs_tree(const char *path, int depth);
+void fs_pwd(void);
+void fs_cd(const char *path);
+void fs_mkdir_simple(const char *name);
+void fs_rmdir_simple(const char *name);
+void fs_stat_simple(const char *name);
+uint32_t fs_size(const char *name);
+time_t fs_mtime(const char *name);
+int fs_copy(const char *src, const char *dst);
+int fs_move(const char *src, const char *dst);
+int fs_echo(const char *name, const char *text);
+int fs_clear(const char *name);
+void fs_test(void);
+void fs_benchmark(void);
+void fs_dump_inode(uint32_t inode);
 
 #endif
