@@ -2,6 +2,8 @@
 #define FS_H
 
 #include <kernel_b/types.h>
+#include <asm/atomic.h>  
+#include <asm/spinlock.h> 
 
 #define MAX_NAME_LEN 256
 #define MAX_PATH_LEN 4096
@@ -13,6 +15,12 @@
 #define MAX_FILE_CONTENT 65536
 #define DEFAULT_FILE_PERM 0644
 #define DEFAULT_DIR_PERM  0755
+#define FS_ROOT_INODE   1
+#define FS_BLOCK_SIZE   4096
+#define FS_MAX_BLOCKS   1024
+#define FS_NAME_MAX     255
+#define FS_PATH_MAX     4096
+#define FS_INODES_MAX   1024
 
 typedef enum {
     FILE_TYPE_REGULAR,
@@ -146,6 +154,76 @@ struct stat {
     uint32_t st_blksize;
     uint64_t st_blocks;
 };
+struct buffer_head {
+    uint8_t *data;
+    uint32_t block;
+    uint32_t size;
+    uint8_t dirty;
+    struct buffer_head *next;
+    struct buffer_head *prev;
+};
+
+struct block_device {
+    uint32_t block_size;
+    uint32_t blocks_count;
+    uint32_t (*read)(struct block_device *dev, uint8_t *buf, uint32_t block, uint32_t count);
+    uint32_t (*write)(struct block_device *dev, const uint8_t *buf, uint32_t block, uint32_t count);
+    void *private;
+};
+
+
+struct filesystem {
+    struct block_device *dev;
+    struct superblock sb;
+    struct mount *mounts;
+    struct buffer_head *cache;
+    spinlock_t lock;
+    atomic_t ref_count;
+};
+
+struct file_operations {
+    ssize_t (*read)(struct file *file, void *buf, size_t count, off_t *offset);
+    ssize_t (*write)(struct file *file, const void *buf, size_t count, off_t *offset);
+    int (*open)(struct inode *inode, struct file *file);
+    int (*release)(struct inode *inode, struct file *file);
+    int (*readdir)(struct file *file, void *dirent, filldir_t filldir);
+    int (*ioctl)(struct file *file, unsigned int cmd, unsigned long arg);
+    int (*mmap)(struct file *file, struct vm_area_struct *vma);
+};
+
+struct inode_operations {
+    int (*create)(struct inode *dir, struct dentry *dentry, int mode);
+    struct dentry *(*lookup)(struct inode *dir, struct dentry *dentry);
+    int (*link)(struct dentry *old_dentry, struct inode *dir, struct dentry *new_dentry);
+    int (*unlink)(struct inode *dir, struct dentry *dentry);
+    int (*mkdir)(struct inode *dir, struct dentry *dentry, int mode);
+    int (*rmdir)(struct inode *dir, struct dentry *dentry);
+    int (*rename)(struct inode *old_dir, struct dentry *old_dentry,
+                  struct inode *new_dir, struct dentry *new_dentry);
+    int (*permission)(struct inode *inode, int mask);
+};
+
+
+struct dentry {
+    char name[FS_NAME_MAX];
+    struct inode *inode;
+    struct dentry *parent;
+    struct list_head children;
+    struct list_head sibling;
+    atomic_t ref_count;
+    uint32_t flags;
+};
+
+struct file_system_type {
+    const char *name;
+    int fs_flags;
+    struct dentry *(*mount)(struct file_system_type *fs_type,
+                            int flags, const char *dev_name, void *data);
+    void (*kill_sb)(struct super_block *sb);
+    struct module *owner;
+    struct file_system_type *next;
+    struct list_head fs_supers;
+};
 
 #define S_IFMT   0170000
 #define S_IFREG  0100000
@@ -176,6 +254,10 @@ struct stat {
 extern file_t *fs_root;
 extern file_t *current_dir;
 extern mount_t *mount_list;
+extern struct filesystem *fs_rootfs;
+extern spinlock_t fs_lock;
+extern struct list_head filesystems;
+
 
 file_t* fs_find_in_dir(file_t* dir, const char* name);
 file_t* fs_lookup(const char *path);
@@ -221,5 +303,58 @@ int fs_clear(const char *name);
 void fs_test(void);
 void fs_benchmark(void);
 void fs_dump_inode(uint32_t inode);
+struct filesystem* fs_alloc(void);
+void fs_free(struct filesystem *fs);
+int fs_register(const char *name, struct file_system_type *type);
+int fs_unregister(const char *name);
+struct superblock* fs_read_super(struct block_device *dev);
+int fs_write_super(struct superblock *sb);
+struct inode* fs_alloc_inode(struct superblock *sb);
+void fs_destroy_inode(struct inode *inode);
+struct dentry* fs_lookup(struct inode *dir, struct dentry *target);
+int fs_create(struct inode *dir, struct dentry *dentry, int mode);
+int fs_mknod(struct inode *dir, struct dentry *dentry, int mode, dev_t dev);
+int fs_link(struct dentry *old_dentry, struct inode *dir, struct dentry *new_dentry);
+int fs_unlink(struct inode *dir, struct dentry *dentry);
+int fs_symlink(struct inode *dir, struct dentry *dentry, const char *symname);
+int fs_mkdir(struct inode *dir, struct dentry *dentry, int mode);
+int fs_rmdir(struct inode *dir, struct dentry *dentry);
+int fs_rename(struct inode *old_dir, struct dentry *old_dentry,
+              struct inode *new_dir, struct dentry *new_dentry);
+int fs_permission(struct inode *inode, int mask);
+void fs_setattr(struct inode *inode, struct iattr *attr);
+void fs_notify_change(struct dentry *dentry, struct iattr *attr);
+struct buffer_head* fs_bread(struct block_device *dev, uint32_t block);
+int fs_bwrite(struct buffer_head *bh);
+void fs_brelse(struct buffer_head *bh);
+int fs_sync_inode(struct inode *inode);
+void fs_sync_super(struct superblock *sb);
+void fs_statfs(struct superblock *sb, struct kstatfs *buf);
+int fs_show_options(struct seq_file *seq, struct dentry *root);
+void fs_put_super(struct superblock *sb);
+int fs_remount_fs(struct superblock *sb, int *flags, char *data);
+void fs_umount_begin(struct superblock *sb);
+int fs_bmap(struct inode *inode, int block);
+int fs_readpage(struct file *file, struct page *page);
+int fs_writepage(struct page *page, struct writeback_control *wbc);
+int fs_write_begin(struct file *file, struct address_space *mapping,
+                   loff_t pos, unsigned len, unsigned flags,
+                   struct page **pagep, void **fsdata);
+int fs_write_end(struct file *file, struct address_space *mapping,
+                 loff_t pos, unsigned len, unsigned copied,
+                 struct page *page, void *fsdata);
+sector_t fs_bmap(struct address_space *mapping, sector_t block);
+int fs_direct_IO(int rw, struct kiocb *iocb, const struct iovec *iov,
+                 loff_t offset, unsigned long nr_segs);
+int fs_migrate_page(struct address_space *mapping, struct page *newpage,
+                    struct page *page, enum migrate_mode mode);
+int fs_launder_page(struct page *page);
+int fs_is_partially_uptodate(struct page *page, read_descriptor_t *desc,
+                             unsigned long from);
+int fs_error_remove_page(struct address_space *mapping, struct page *page);
+void fs_init_early(void);
+void fs_init(void);
+void fs_late_init(void);
+
 
 #endif
