@@ -1,40 +1,67 @@
-ASM      = nasm
-CC       = gcc
-LD       = ld
-CFLAGS   = -m16 -ffreestanding -fno-stack-protector -fno-pic -nostdlib -nostdinc -Wall
-LDFLAGS  = -Ttext 0x100
+CC = gcc
+AS = nasm
+LD = ld
 
-BOOT_DIR = boot
-KERNEL_DIR = kernel
-FS_DIR = f_sys
+CFLAGS = -ffreestanding -m32 -O2 -Wall -Wextra -nostdlib -fno-stack-protector \
+         -fno-builtin -fno-PIC -Iinclude
+ASFLAGS = -f elf32
+LDFLAGS = -m elf_i386 -T linker.ld -nostdlib
 
-BOOT_OBJS   = $(BOOT_DIR)/boot.o $(BOOT_DIR)/hr.o $(BOOT_DIR)/iR_1.o $(BOOT_DIR)/log.o $(BOOT_DIR)/push_c.o $(BOOT_DIR)/sector.o
-KERNEL_OBJS = $(KERNEL_DIR)/bios.o $(KERNEL_DIR)/syscall.o $(KERNEL_DIR)/kernel.o
-FS_OBJS     = $(FS_DIR)/io.o $(FS_DIR)/file.o $(FS_DIR)/dir.o $(FS_DIR)/vfs.o
+KERNEL_SOURCES = \
+	boot/boot.asm \
+	kernel_base/entry.asm \
+	kernel_base/main.c \
+	kernel_base/printk.c \
+	kernel_base/panic.c \
+	mm/mm.c \
+	drivers/serial.c \
+	drivers/vga.c \
+	usr/init.c
 
-OBJS = $(BOOT_OBJS) $(KERNEL_OBJS) $(FS_OBJS)
+FS_SOURCES = \
+	f_sys/cored.c \
+	f_sys/dir.c \
+	f_sys/file.c \
+	f_sys/inode.c \
+	f_sys/mount.c \
+	f_sys/vfs.c
+
+KERNEL_OBJS = $(patsubst %.c,%.o,$(filter %.c,$(KERNEL_SOURCES))) \
+              $(patsubst %.asm,%.o,$(filter %.asm,$(KERNEL_SOURCES)))
+
+FS_OBJS = $(patsubst %.c,%.o,$(FS_SOURCES))
 
 TARGET = kernel.bin
+ISO = os.iso
 
-all: $(TARGET)
+all: $(ISO)
 
-$(BOOT_DIR)/%.o: $(BOOT_DIR)/%.s
-	$(ASM) -f elf $< -o $@
+$(ISO): $(TARGET)
+	mkdir -p iso/boot/grub
+	cp $(TARGET) iso/boot/
+	cp grub.cfg iso/boot/grub/
+	grub-mkrescue -o $@ iso
 
-$(KERNEL_DIR)/%.o: $(KERNEL_DIR)/%.c $(KERNEL_DIR)/%.h
+$(TARGET): $(KERNEL_OBJS) $(FS_OBJS)
+	$(LD) $(LDFLAGS) -o $@ $^
+
+%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(FS_DIR)/%.o: $(FS_DIR)/%.c $(FS_DIR)/%.h
-	$(CC) $(CFLAGS) -c $< -o $@
+%.o: %.asm
+	$(AS) $(ASFLAGS) $< -o $@
 
-$(TARGET): $(OBJS)
-	$(LD) -m elf_i386 $(LDFLAGS) -o $(TARGET) $(OBJS)
+run: $(ISO)
+	qemu-system-i386 -cdrom $(ISO) -serial stdio
 
+debug: $(ISO)
+	qemu-system-i386 -cdrom $(ISO) -serial stdio -s -S
 
 clean:
-	rm -f $(BOOT_DIR)/*.o $(KERNEL_DIR)/*.o $(FS_DIR)/*.o $(TARGET)
+	rm -f $(KERNEL_OBJS) $(FS_OBJS) $(TARGET) $(ISO)
+	rm -rf iso
 
-run: $(TARGET)
-	qemu-system-x86_64 -drive format=raw,file=$(TARGET)
+fsclean:
+	rm -f $(FS_OBJS)
 
-.PHONY: all clean run
+.PHONY: all clean fsclean run debug
