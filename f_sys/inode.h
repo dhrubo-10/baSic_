@@ -3,8 +3,9 @@
 
 #include <kernelb/types.h>
 #include <kernelb/list.h>
-#include <kernelb/spinlock.h>
-#include <kernelb/atomic.h>
+#include <asm/atomic.h>
+#include <asm/spinlock.h>
+#include <asm/page.h>
 
 #define INODE_TYPE_FILE     0x01
 #define INODE_TYPE_DIR      0x02

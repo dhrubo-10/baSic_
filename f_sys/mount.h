@@ -2,8 +2,9 @@
 #define KERNELB_MOUNT_H
 
 #include "inode.h"
-#include <kernelb/list.h>
-#include <kernelb/spinlock.h>
+#include <asm/atomic.h>
+#include <asm/spinlock.h>
+#include <asm/page.h>
 
 struct superblock;
 struct filesystem_type;
