@@ -15,6 +15,7 @@
 #define SIGTSTP    20
 #define SIGTTIN    21
 #define SIGTTOU    22
+#define SIGBUS      7
 
 #define SA_NOCLDSTOP   0x00000001
 #define SA_NOCLDWAIT   0x00000002
@@ -28,11 +29,13 @@
 typedef void (*sighandler_t)(int);
 
 struct sigaction {
-    sighandler_t sa_handler;
+    void (*sa_handler)(int);
     unsigned long sa_flags;
     void (*sa_restorer)(void);
+    sigset_t sa_mask;
 };
 
+void sigemptyset(sigset_t *set);
 int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
 int kill(pid_t pid, int sig);
 int raise(int sig);

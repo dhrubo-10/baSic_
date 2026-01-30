@@ -16,5 +16,6 @@ off_t lseek(int fd, off_t offset, int whence);
 int unlink(const char *pathname);
 void _exit(int status);
 char *getprogname(void);
+ssize_t write(int fd, const void *buf, size_t count);
 
 #endif
