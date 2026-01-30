@@ -1,4 +1,4 @@
-#include <kernelb/inode.h>
+#include "inode.h"
 #include <kernelb/string.h>
 #include <kernelb/stdlib.h>
 #include <kernelb/stdio.h>
