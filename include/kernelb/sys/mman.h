@@ -1,7 +1,7 @@
 #ifndef _SYS_MMAN_H
 #define _SYS_MMAN_H
 
-#include "types.h"
+#include "../types.h"
 
 #define PROT_NONE      0x0
 #define PROT_READ      0x1
