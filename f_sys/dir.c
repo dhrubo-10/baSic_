@@ -1,9 +1,9 @@
 #include "fs.h"
-#include <kernel_b/stdio.h>
-#include <kernel_b/string.h>
-#include <kernel_b/stdlib.h>
-#include <kernel_b/errno.h>
-#include <kernel_b/time.h>
+#include <kernelb/stdio.h>
+#include <kernelb/string.h>
+#include <kernelb/stdlib.h>
+#include <kernelb/errno.h>
+#include <kernelb/time.h>
 
 file_t *fs_root = NULL;
 file_t *current_dir = NULL;

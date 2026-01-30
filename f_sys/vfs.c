@@ -1,13 +1,13 @@
-#include <kernel_b/types.h>
-#include <kernel_b/string.h>
-#include <kernel_b/stdlib.h>
+#include <kernelb/types.h>
+#include <kernelb/string.h>
+#include <kernelb/stdlib.h>
 #include <asm/atomic.h>
 #include <asm/spinlock.h>
 #include <asm/page.h>
-#include <kernel_b/printk.h>
-#include <kernel_b/panic.h>
-#include <kernel_b/list.h>
-#include <kernel_b/slab.h>
+#include <kernelb/printk.h>
+#include <kernelb/panic.h>
+#include <kernelb/list.h>
+#include <kernelb/slab.h>
 #include "fs.h"
 
 
