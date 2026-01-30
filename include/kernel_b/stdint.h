@@ -1,16 +1,19 @@
-#ifndef KERNELB_STDINT_H
-#define KERNELB_STDINT_H
+#ifndef _STDINT_H
+#define _STDINT_H
 
 #include "types.h"
 
-typedef u8  uint8_t;
-typedef u16 uint16_t;
-typedef u32 uint32_t;
-typedef u64 uint64_t;
-
-typedef i8  int8_t;
-typedef i16 int16_t;
-typedef i32 int32_t;
-typedef i64 int64_t;
+#define INT8_MIN   (-128)
+#define INT16_MIN  (-32768)
+#define INT32_MIN  (-2147483648)
+#define INT64_MIN  (-9223372036854775808LL)
+#define INT8_MAX   127
+#define INT16_MAX  32767
+#define INT32_MAX  2147483647
+#define INT64_MAX  9223372036854775807LL
+#define UINT8_MAX  255
+#define UINT16_MAX 65535
+#define UINT32_MAX 4294967295U
+#define UINT64_MAX 18446744073709551615ULL
 
 #endif
