@@ -45,8 +45,7 @@ struct coredump_ctx {
 };
 
 static int is_readable(void *addr) {
-    volatile int test = 0;
-    (void)test;
+    (void)addr;
     return 1;
 }
 
