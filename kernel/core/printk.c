@@ -1,34 +1,57 @@
 // ik its dumb, but whatever..
 
 #include <kernelb/stdio.h>
+#include <kernelb/string.h>
+#include <drivers/vga.h>
 
-static void putchar(char c)
+static void print_uint(uint32_t n)
 {
-    volatile char *video = (volatile char*)0xB8000;
-    static int pos = 0;
+    char buf[32];
+    int i = 0;
     
-    if (c == '\n') {
-        pos = (pos + 160) - (pos % 160);
-    } else {
-        video[pos++] = c;
-        video[pos++] = 0x0F;
-    }
+    do {
+        buf[i++] = '0' + (n % 10);
+        n /= 10;
+    } while (n);
     
-    // Scroll if needed
-    if (pos >= 80*25*2) {
-        for (int i = 160; i < 80*25*2; i++) {
-            video[i-160] = video[i];
-        }
-        pos -= 160;
-        for (int i = pos; i < 80*25*2; i++) {
-            video[i] = 0;
-        }
+    while (i > 0) {
+        vga_putchar(buf[--i]);
     }
 }
 
-void printk(const char *str)
+static void print_hex(uint32_t n)
 {
-    while (*str) {
-        putchar(*str++);
+    char buf[32];
+    int i = 0;
+    
+    do {
+        int digit = n % 16;
+        buf[i++] = digit < 10 ? '0' + digit : 'A' + digit - 10;
+        n /= 16;
+    } while (n);
+    
+    vga_putchar('0');
+    vga_putchar('x');
+    while (i > 0) {
+        vga_putchar(buf[--i]);
+    }
+}
+
+void printk(const char *fmt, ...)
+{
+    while (*fmt) {
+        if (*fmt == '%') {
+            fmt++;
+            if (*fmt == 'd') {
+                // Would parse integer from args
+            } else if (*fmt == 's') {
+                // Would parse string from args
+            } else if (*fmt == 'c') {
+                // Would parse char from args
+            }
+        } else {
+            vga_putchar(*fmt);
+        }
+        fmt++;
     }
 }
