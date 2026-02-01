@@ -8,12 +8,12 @@ bits 16
 org 0x7C00
 
 start:
-    cli                     
+    cli                     ; Disable interrupts
     xor ax, ax
     mov ds, ax
     mov es, ax
     mov ss, ax
-    mov sp, 0x7C00          
+    mov sp, 0x7C00          ; Setup stack
     
     ; Enable A20 line
     call enable_a20
@@ -141,6 +141,29 @@ CODE_SEG equ gdt_code - gdt_start
 DATA_SEG equ gdt_data - gdt_start
 
 error_msg db "Disk error!", 0
+
+; Protected mode code (32-bit)
+bits 32
+
+protected_mode:
+    mov ax, DATA_SEG
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov ss, ax
+    mov esp, 0x90000
+    
+    ; Clear screen
+    mov edi, 0xB8000
+    mov ecx, 80*25
+    mov ax, 0x0F20
+    rep stosw
+    
+    ; Jump to kernel
+    jmp 0x10000
+
+    hlt
 
 times 510-($-$$) db 0
 dw 0xAA55
