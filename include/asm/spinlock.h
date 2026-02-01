@@ -1,7 +1,7 @@
 #ifndef _ASM_SPINLOCK_H
 #define _ASM_SPINLOCK_H
 
-#include <kernel_b/types.h>
+#include <kernelb/types.h>
 
 typedef struct {
     volatile unsigned int lock;

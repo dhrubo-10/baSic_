@@ -1,7 +1,7 @@
 #ifndef _ASM_ATOMIC_H
 #define _ASM_ATOMIC_H
 
-#include <kernel_b/types.h>
+#include <kernelb/types.h>
 
 typedef struct {
     volatile int counter;
