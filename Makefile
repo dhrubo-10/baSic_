@@ -1,86 +1,86 @@
-# DhrubOS Makefile
+# baSic_ Makefile
 # Toolchain: nasm, i686-elf-gcc (cross-compiler) or gcc -m32 as fallback
 
 AS      := nasm
 CC      := i686-elf-gcc
 LD      := i686-elf-ld
 
-# Fallback to host gcc with -m32 if cross-compiler isn't installed
 ifeq (, $(shell which $(CC) 2>/dev/null))
     CC  := gcc
     LD  := ld
-    $(warning Cross-compiler not found, using host gcc -m32. Install i686-elf-gcc for best results.)
+    $(warning Cross-compiler not found, using host gcc -m32.)
 endif
 
-ASFLAGS  := -f elf32
-CFLAGS   := -m32 \
-             -ffreestanding \
-             -fno-stack-protector \
-             -fno-builtin \
-             -fno-pic \
-             -nostdlib \
-             -nostdinc \
-             -Wall \
-             -Wextra \
-             -O2 \
-             -I include
-LDFLAGS  := -T linker.ld \
-             -melf_i386 \
-             --oformat binary
+ASFLAGS := -f elf32
 
+CFLAGS  := -m32             \
+            -ffreestanding  \
+            -fno-stack-protector \
+            -fno-builtin    \
+            -fno-pic        \
+            -nostdlib       \
+            -nostdinc       \
+            -Wall           \
+            -Wextra         \
+            -O2             \
+            -I include
+
+LDFLAGS := -T linker.ld     \
+            -melf_i386      \
+            --oformat binary
 
 BUILD_DIR := build
-ISO_DIR   := iso
 
-BOOT_SRCS  := boot/stage2.asm
-KERNEL_SRCS := kernel/main.c \
+BOOT_SRCS   := boot/stage2.asm
+KERNEL_SRCS := kernel/main.c  \
                kernel/vga.c
+LIB_SRCS    := lib/string.c   \
+               lib/kprintf.c
 
-BOOT_OBJS   := $(patsubst boot/%.asm,   $(BUILD_DIR)/boot/%.o,   $(BOOT_SRCS))
-KERNEL_OBJS := $(patsubst kernel/%.c,   $(BUILD_DIR)/kernel/%.o, $(KERNEL_SRCS))
+BOOT_OBJS   := $(patsubst boot/%.asm,    $(BUILD_DIR)/boot/%.o,   $(BOOT_SRCS))
+KERNEL_OBJS := $(patsubst kernel/%.c,    $(BUILD_DIR)/kernel/%.o, $(KERNEL_SRCS))
+LIB_OBJS    := $(patsubst lib/%.c,       $(BUILD_DIR)/lib/%.o,    $(LIB_SRCS))
 
-ALL_OBJS := $(BOOT_OBJS) $(KERNEL_OBJS)
+ALL_OBJS := $(BOOT_OBJS) $(KERNEL_OBJS) $(LIB_OBJS)
 
-MBR_BIN     := $(BUILD_DIR)/boot.bin
-KERNEL_BIN  := $(BUILD_DIR)/kernel.bin
-OS_IMAGE    := $(BUILD_DIR)/baSic_.img
-
+MBR_BIN  := $(BUILD_DIR)/boot.bin
+KERN_BIN := $(BUILD_DIR)/kernel.bin
+OS_IMG   := $(BUILD_DIR)/baSic_.img
 
 .PHONY: all
-all: $(OS_IMAGE)
+all: $(OS_IMG)
 
-
-$(OS_IMAGE): $(MBR_BIN) $(KERNEL_BIN)
+$(OS_IMG): $(MBR_BIN) $(KERN_BIN)
 	@echo "[IMG] $@"
-	@cat $(MBR_BIN) $(KERNEL_BIN) > $@
-	@# Pad to a round number of sectors (multiple of 512)
-	+	@python3 -c "\
+	@cat $(MBR_BIN) $(KERN_BIN) > $@
+	@python3 -c "\
 import os; \
 target = 65 * 512; \
 size = os.path.getsize('$@'); \
 open('$@', 'ab').write(b'\\x00' * max(0, target - size))"
-	@echo "[OK] Disk image: $@ ($(shell wc -c < $@) bytes)"
-
+	@echo "[OK]  $@ ready"
 
 $(MBR_BIN): boot/boot.asm | $(BUILD_DIR)/boot
-	@echo "[AS] $<"
+	@echo "[AS]  $<"
 	@$(AS) -f bin $< -o $@
 
-
-$(KERNEL_BIN): $(ALL_OBJS) linker.ld
-	@echo "[LD] $@"
-	@$(LD) $(LDFLAGS) -o $@ $(ALL_OBJS)
-
+$(KERN_BIN): $(ALL_OBJS) linker.ld
+	@echo "[LD]  $@"
+	@$(LD) $(LDFLAGS) -o $@ \
+		$(BUILD_DIR)/boot/stage2.o \
+		$(filter-out $(BUILD_DIR)/boot/stage2.o, $(ALL_OBJS))
 
 $(BUILD_DIR)/boot/%.o: boot/%.asm | $(BUILD_DIR)/boot
-	@echo "[AS] $<"
+	@echo "[AS]  $<"
 	@$(AS) $(ASFLAGS) $< -o $@
 
-
 $(BUILD_DIR)/kernel/%.o: kernel/%.c | $(BUILD_DIR)/kernel
-	@echo "[CC] $<"
+	@echo "[CC]  $<"
 	@$(CC) $(CFLAGS) -c $< -o $@
 
+$(BUILD_DIR)/lib/%.o: lib/%.c | $(BUILD_DIR)/lib
+	@echo "[CC]  $<"
+	@$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/boot:
 	@mkdir -p $@
@@ -88,18 +88,18 @@ $(BUILD_DIR)/boot:
 $(BUILD_DIR)/kernel:
 	@mkdir -p $@
 
+$(BUILD_DIR)/lib:
+	@mkdir -p $@
 
 .PHONY: run
-run: $(OS_IMAGE)
-	@./scripts/run.sh $(OS_IMAGE)
-
+run: $(OS_IMG)
+	@./scripts/run.sh $(OS_IMG)
 
 .PHONY: run-debug
-run-debug: $(OS_IMAGE)
-	@./scripts/run.sh $(OS_IMAGE) debug
-
+run-debug: $(OS_IMG)
+	@./scripts/run.sh $(OS_IMG) debug
 
 .PHONY: clean
 clean:
 	@rm -rf $(BUILD_DIR)
-	@echo "[OK] Cleaned."
+	@echo "[OK]  cleaned"
