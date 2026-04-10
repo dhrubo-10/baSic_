@@ -1,4 +1,12 @@
+/* baSic_ - kernel/main.c
+ * Copyright (C) 2026 Dhrubo
+ * GPL v2 — see LICENSE
+ * 
+ * kernel entry point, called from stage2 after protected mode
+ */
+
 #include "vga.h"
+#include "../lib/kprintf.h"
 #include "../include/types.h"
 
 static const char *banner[] = {
@@ -9,57 +17,45 @@ static const char *banner[] = {
     " |_.__/ \\__,_|___/_|\\___|",
     0,
 };
+
 static void print_banner(void)
 {
     vga_set_color(VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
-    for (int i = 0; banner[i]; i++) {
-        vga_print(banner[i]);
-        vga_putchar('\n');
-    }
-    vga_putchar('\n');
+    for (int i = 0; banner[i]; i++)
+        kprintf("%s\n", banner[i]);
+    kprintf("\n");
 }
 
 static void print_info(void)
 {
     vga_set_color(VGA_COLOR_WHITE, VGA_COLOR_BLACK);
-    vga_print("baSic_ v0.01 - Linux 0.01-inspired kernel\n");
-    vga_print("Inspired by Linus Torvalds, Dennis Ritchie, Ken Thompson\n");
-    vga_putchar('\n');
+    kprintf("baSic_ v0.01 - Linux 0.01-inspired kernel\n");
+    kprintf("Inspired by Linus Torvalds, Dennis Ritchie, Ken Thompson\n\n");
 
     vga_set_color(VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
-    vga_print("[OK] Bootloader stage 1   loaded\n");
-    vga_print("[OK] Bootloader stage 2   loaded (GDT + protected mode)\n");
-    vga_print("[OK] VGA driver           initialized\n");
-    vga_print("[OK] kmain()              entered\n");
-    vga_putchar('\n');
+    kprintf("[OK] stage 1 bootloader    loaded\n");
+    kprintf("[OK] stage 2 (GDT + PM)   done\n");
+    kprintf("[OK] VGA driver            ready\n");
+    kprintf("[OK] kprintf               ready\n");
+    kprintf("[OK] kmain()               running\n\n");
 
     vga_set_color(VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
-    vga_print("System is running in 32-bit protected mode.\n");
-    vga_print("Next: IDT, ISR, PIC, keyboard driver...\n");
-    vga_putchar('\n');
+    kprintf("32-bit protected mode. next: IDT + PIC\n\n");
 
     vga_set_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
-    vga_print("Kernel base address:  ");
-    vga_print_hex(0x8000);
-    vga_putchar('\n');
-    vga_print("Stack pointer:        ");
-    vga_print_hex(0x9F000);
-    vga_putchar('\n');
+    kprintf("kernel base:  %x\n", 0x8000);
+    kprintf("stack top:    %x\n", 0x9F000);
+
+    /* prove kprintf format specifiers work */
+    kprintf("decimal test: %d  unsigned: %u  char: %c\n", -42, 255u, 'K');
 }
 
-/*
- * kmain - Kernel entry point.
- * Called from stage2.asm after protected mode is established.
- * Never returns.
- */
 void kmain(void)
 {
     vga_init();
     print_banner();
     print_info();
 
-    /* Kernel idle loop — will host scheduler later */
-    for (;;) {
+    for (;;)
         __asm__ volatile ("hlt");
-    }
 }

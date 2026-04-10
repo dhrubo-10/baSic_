@@ -1,3 +1,9 @@
+/* baSic_ - kernel/vga.c
+ * Copyright (C) 2026 Dhrubo
+ * GPL v2 — see LICENSE
+ */ 
+
+
 #include "vga.h"
 
 /* VGA text mode framebuffer: 80 columns x 25 rows, each cell is 2 bytes.
