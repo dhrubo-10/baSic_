@@ -1,0 +1,13 @@
+build/
+*.o
+*.bin
+*.img
+*.iso
+*.swp
+*.swo
+*~
+.idea/
+
+
+.DS_Store
+Thumbs.db
