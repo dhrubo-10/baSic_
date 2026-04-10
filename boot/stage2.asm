@@ -4,9 +4,9 @@
 
 
 [BITS 16]
-[ORG 0x8000]
-
 EXTERN kmain            ; defined in kernel/main.c
+
+section .text.entry
 
 stage2_start:
     cli
@@ -28,8 +28,6 @@ stage2_start:
 
     ; far jump to flush the prefetch queue and load CS with code selector (0x08)
     jmp 0x08:protected_mode_entry
-
-
 [BITS 32]
 
 protected_mode_entry:
@@ -45,7 +43,12 @@ protected_mode_entry:
     mov esp, 0x9F000
 
     ; call into the C kernel
-    call kmain
+    mov esp, 0x9F000
+
+    ; Write 'S' in green at top-left (0xB8000). If this appears, PM works.
+    mov word [0xB8000], 0x0A53   ; 0x0A = light green attr, 0x53 = 'S'
+
+     call kmain
 
     ; if kmain ever returns (it shouldn't), halt forever
 .hang:
@@ -54,12 +57,13 @@ protected_mode_entry:
     jmp .hang
 
 
+
 ; Global Descriptor Table
 ; Three entries: null, ring-0 code, ring-0 data.
 ; All segments are flat (base 0, limit 4 GB).
 gdt_start:
 
-
+; Entry 0 — Null descriptor (required)
 gdt_null:
     dq 0x0000000000000000
 

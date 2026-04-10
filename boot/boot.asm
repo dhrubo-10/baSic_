@@ -32,26 +32,30 @@ start:
     ; hand off to stage2
     jmp KERNEL_LOAD_ADDR
 
-
 ; load_kernel: loads KERNEL_SECTORS sectors starting at sector 2 into
 ;              ES:BX = 0x0000:0x8000 using INT 13h CHS read
 load_kernel:
-    mov ah, 0x02            ; BIOS: read sectors
-    mov al, KERNEL_SECTORS  ; number of sectors
-    mov ch, 0               ; cylinder 0
-    mov cl, 2               ; start at sector 2 (sector 1 = this MBR)
-    mov dh, 0               ; head 0
+    mov si, dap
+    mov ah, 0x42
     mov dl, [boot_drive]
-    mov bx, KERNEL_LOAD_ADDR
     int 0x13
-    jc .disk_error
+    jc disk_error
     ret
 
-.disk_error:
+disk_error:
     mov si, msg_disk_err
     call bios_print
     cli
     hlt
+
+; Disk Address Packet for LBA read
+dap:
+    db 0x10             ; DAP size (16 bytes)
+    db 0x00             ; reserved
+    dw KERNEL_SECTORS   ; sectors to read
+    dw KERNEL_LOAD_ADDR ; target offset
+    dw 0x0000           ; target segment
+    dq 1                ; LBA start = sector 1 (0-indexed, so sector 2 in 1-based)
 
 
 bios_print:
@@ -65,7 +69,7 @@ bios_print:
 .done:
     ret
 
-msg_loading  db 'DhrubOS: loading kernel...', 0x0D, 0x0A, 0
+msg_loading  db 'baSic_: loading kernel...', 0x0D, 0x0A, 0
 msg_ok       db 'OK. Entering stage2.', 0x0D, 0x0A, 0
 msg_disk_err db '[ERROR] Disk read failed!', 0x0D, 0x0A, 0
 boot_drive   db 0
