@@ -1,8 +1,6 @@
-%if 0 
-    Decided to scrap everything and writing it from scratch.
-    Bcs of some complicated decisions made before on this project. 
-    SO now writing it from scratch seems easier thn fixing those issues :")
-%endif
+; baSic_ - boot/boot.asm
+; Copyright (C) 2026 Dhrubo
+; GPL v2 — see LICENSE
 
 [BITS 16]
 [ORG 0x7C00]
