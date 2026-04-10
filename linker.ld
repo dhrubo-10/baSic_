@@ -1,32 +1,53 @@
-ENTRY(_start)
+/*
+ * baSic_
+ *
+ * The boot MBR (boot.asm) loads this image at physical address 0x8000.
+ * stage2.asm must be the very first thing in the output binary so the
+ * jump from the MBR lands at stage2_start.
+ */
+
+ENTRY(stage2_start)
 
 SECTIONS
 {
-    . = 0x10000;  /* Kernel loads at 1MB */
-    
-    .text : {
-        *(.multiboot)
+    /* Load address: stage2 + kernel live together starting at 0x8000 */
+    . = 0x8000;
+
+    /* text */
+    .text :
+    {
+        /* stage2 must come first — it is the entry point */
         *(.text)
+        *(.text.*)
     }
-    
-    .rodata : {
+
+    /*  readonly data */
+    .rodata :
+    {
         *(.rodata)
+        *(.rodata.*)
     }
-    
-    .data : {
+
+    /* initialised data */
+    .data :
+    {
         *(.data)
+        *(.data.*)
     }
-    
-    .bss : {
+
+    /*  zero-initialised data */
+    .bss :
+    {
         *(COMMON)
         *(.bss)
+        *(.bss.*)
     }
-    
-    /* End of kernel */
-    kernel_end = .;
-    
-    /* Kernel stack */
-    . = ALIGN(16);
-    . += 0x4000;
-    stack_top = .;
+
+    /* Discard debug info and other unwanted sections */
+    /DISCARD/ :
+    {
+        *(.comment)
+        *(.note*)
+        *(.eh_frame*)
+    }
 }
