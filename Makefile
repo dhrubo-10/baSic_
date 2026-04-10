@@ -43,7 +43,7 @@ ALL_OBJS := $(BOOT_OBJS) $(KERNEL_OBJS)
 
 MBR_BIN     := $(BUILD_DIR)/boot.bin
 KERNEL_BIN  := $(BUILD_DIR)/kernel.bin
-OS_IMAGE    := $(BUILD_DIR)/dhrubox.img
+OS_IMAGE    := $(BUILD_DIR)/baSic_.img
 
 
 .PHONY: all

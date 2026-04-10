@@ -3,7 +3,7 @@
 # Usage: ./scripts/run.sh <image.img> [debug]
 
 
-IMAGE="${1:-build/dhrubox.img}"
+IMAGE="${1:-build/baSic_.img}"
 MODE="${2:-}"
 
 if [ ! -f "$IMAGE" ]; then
