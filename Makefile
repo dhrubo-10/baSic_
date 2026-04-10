@@ -1,56 +1,105 @@
-# Main Makefile
-CC = gcc
-AS = nasm
-LD = ld
+# DhrubOS Makefile
+# Toolchain: nasm, i686-elf-gcc (cross-compiler) or gcc -m32 as fallback
 
-CFLAGS = -ffreestanding -m32 -O2 -Wall -Wextra -nostdlib \
-         -fno-stack-protector -fno-builtin -fno-PIC -Iinclude
-ASFLAGS = -f elf32
-LDFLAGS = -m elf_i386 -T linker.ld -nostdlib
+AS      := nasm
+CC      := i686-elf-gcc
+LD      := i686-elf-ld
 
-KERNEL_OBJS = \
-	kernelb/core/main.o \
-	kernelb/core/printk.o \
-	kernelb/core/panic.o \
-	kernelb/arch/x86/io.o \
-	kernelb/arch/x86/gdt.o \
-	kernelb/drivers/vga.o \
-	kernelb/drivers/keyboard.o \
-	fs/vfs.o \
-	fs/fat.o \
-	fs/file.o \
-	fs/inode.o \
-	mm/heap.o \
-	mm/paging.o
+# Fallback to host gcc with -m32 if cross-compiler isn't installed
+ifeq (, $(shell which $(CC) 2>/dev/null))
+    CC  := gcc
+    LD  := ld
+    $(warning Cross-compiler not found, using host gcc -m32. Install i686-elf-gcc for best results.)
+endif
 
-BOOT_OBJS = boot/entry.o
-KERNEL_BIN = kernel.bin
-BOOT_BIN = boot/boot.bin
-OS_IMG = os.img
+ASFLAGS  := -f elf32
+CFLAGS   := -m32 \
+             -ffreestanding \
+             -fno-stack-protector \
+             -fno-builtin \
+             -fno-pic \
+             -nostdlib \
+             -nostdinc \
+             -Wall \
+             -Wextra \
+             -O2 \
+             -I include
+LDFLAGS  := -T linker.ld \
+             -melf_i386 \
+             --oformat binary
 
-all: $(OS_IMG)
 
-$(OS_IMG): $(BOOT_BIN) $(KERNEL_BIN)
-	cat $(BOOT_BIN) $(KERNEL_BIN) > $(OS_IMG)
-	truncate -s 1440k $(OS_IMG)
+BUILD_DIR := build
+ISO_DIR   := iso
 
-$(KERNEL_BIN): $(KERNEL_OBJS) $(BOOT_OBJS)
-	$(LD) $(LDFLAGS) -o $@ $^
+BOOT_SRCS  := boot/stage2.asm
+KERNEL_SRCS := kernel/main.c \
+               kernel/vga.c
 
-$(BOOT_BIN):
-	$(MAKE) -C boot
+BOOT_OBJS   := $(patsubst boot/%.asm,   $(BUILD_DIR)/boot/%.o,   $(BOOT_SRCS))
+KERNEL_OBJS := $(patsubst kernel/%.c,   $(BUILD_DIR)/kernel/%.o, $(KERNEL_SRCS))
 
-%.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+ALL_OBJS := $(BOOT_OBJS) $(KERNEL_OBJS)
 
-%.o: %.asm
-	$(AS) $(ASFLAGS) $< -o $@
+MBR_BIN     := $(BUILD_DIR)/boot.bin
+KERNEL_BIN  := $(BUILD_DIR)/kernel.bin
+OS_IMAGE    := $(BUILD_DIR)/dhrubox.img
 
-run: $(OS_IMG)
-	qemu-system-i386 -fda $(OS_IMG) -serial stdio
 
+.PHONY: all
+all: $(OS_IMAGE)
+
+
+$(OS_IMAGE): $(MBR_BIN) $(KERNEL_BIN)
+	@echo "[IMG] $@"
+	@cat $(MBR_BIN) $(KERNEL_BIN) > $@
+	@# Pad to a round number of sectors (multiple of 512)
+	+	@python3 -c "\
+import os; \
+target = 65 * 512; \
+size = os.path.getsize('$@'); \
+open('$@', 'ab').write(b'\\x00' * max(0, target - size))"
+	@echo "[OK] Disk image: $@ ($(shell wc -c < $@) bytes)"
+
+
+$(MBR_BIN): boot/boot.asm | $(BUILD_DIR)/boot
+	@echo "[AS] $<"
+	@$(AS) -f bin $< -o $@
+
+
+$(KERNEL_BIN): $(ALL_OBJS) linker.ld
+	@echo "[LD] $@"
+	@$(LD) $(LDFLAGS) -o $@ $(ALL_OBJS)
+
+
+$(BUILD_DIR)/boot/%.o: boot/%.asm | $(BUILD_DIR)/boot
+	@echo "[AS] $<"
+	@$(AS) $(ASFLAGS) $< -o $@
+
+
+$(BUILD_DIR)/kernel/%.o: kernel/%.c | $(BUILD_DIR)/kernel
+	@echo "[CC] $<"
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+
+$(BUILD_DIR)/boot:
+	@mkdir -p $@
+
+$(BUILD_DIR)/kernel:
+	@mkdir -p $@
+
+
+.PHONY: run
+run: $(OS_IMAGE)
+	@./scripts/run.sh $(OS_IMAGE)
+
+
+.PHONY: run-debug
+run-debug: $(OS_IMAGE)
+	@./scripts/run.sh $(OS_IMAGE) debug
+
+
+.PHONY: clean
 clean:
-	$(MAKE) -C boot clean
-	rm -f $(KERNEL_OBJS) $(BOOT_OBJS) $(KERNEL_BIN) $(OS_IMG)
-
-.PHONY: all clean run
+	@rm -rf $(BUILD_DIR)
+	@echo "[OK] Cleaned."
