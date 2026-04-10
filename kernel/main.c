@@ -23,7 +23,7 @@ static void print_banner(void)
 static void print_info(void)
 {
     vga_set_color(VGA_COLOR_WHITE, VGA_COLOR_BLACK);
-    vga_print("DhrubOS v0.01 - Linux 0.01-inspired kernel\n");
+    vga_print("baSic_ v0.01 - Linux 0.01-inspired kernel\n");
     vga_print("Inspired by Linus Torvalds, Dennis Ritchie, Ken Thompson\n");
     vga_putchar('\n');
 
