@@ -2,7 +2,7 @@
 ; Loaded at 0x8000. Sets up GDT, switches to 32-bit protected mode,
 ; then calls kmain() in the C kernel.
 
-// fixed..
+; fixed
 [BITS 16]
 
 extern kmain
@@ -46,8 +46,8 @@ flush:
     hlt
     jmp .hang
 
-; GDT
-; Must live in same section so the linker patches the address correctly. *** 
+; GDT 
+; Must live in same section so the linker patches the address correctly. 
 
 gdt_start:
     dq 0x0000000000000000     ; null

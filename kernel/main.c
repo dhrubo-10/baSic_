@@ -7,7 +7,6 @@ static const char *banner[] = {
     " | '_ \\ / _` / __| |/ __|",
     " | |_) | (_| \\__ \\ | (__ ",
     " |_.__/ \\__,_|___/_|\\___|",
-    "      baSic_             ",
     0,
 };
 static void print_banner(void)
