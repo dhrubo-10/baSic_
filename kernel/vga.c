@@ -30,8 +30,17 @@ static inline void fb_write(int col, int row, char c, u8 attr)
     VGA_BASE[row * VGA_WIDTH + col] = (u16)((attr << 8) | (u8)c);
 }
 
+static inline void outb(u16 port, u8 val)
+{
+    __asm__ volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
+}
+
+
 void vga_init(void)
 {
+    /* disable hardware blinking cursor */
+    outb(0x3D4, 0x0A);
+    outb(0x3D5, 0x20);
     cur_attr = make_attr(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
     vga_clear();
 }
