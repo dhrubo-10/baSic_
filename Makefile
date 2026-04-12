@@ -39,7 +39,9 @@ KERNEL_SRCS  := kernel/main.c     \
                 kernel/irq.c      \
                 kernel/pic.c      \
                 kernel/timer.c    \
-                kernel/keyboard.c
+                kernel/keyboard.c \
+                kernel/rtc.c      \
+                kernel/shell.c
 
 KERNEL_ASMS  := kernel/isr_stubs.asm  \
                 kernel/irq_stubs.asm
@@ -47,6 +49,7 @@ KERNEL_ASMS  := kernel/isr_stubs.asm  \
 LIB_SRCS     := lib/string.c  \
                 lib/kprintf.c
 
+# -- objects ------------------------------------------------------------------
 BOOT_OBJS    := $(patsubst boot/%.asm,    $(BUILD_DIR)/boot/%.o,    $(BOOT_SRCS))
 KERNEL_OBJS  := $(patsubst kernel/%.c,    $(BUILD_DIR)/kernel/%.o,  $(KERNEL_SRCS))
 KERNEL_AOBJS := $(patsubst kernel/%.asm,  $(BUILD_DIR)/kernel/%.o,  $(KERNEL_ASMS))
