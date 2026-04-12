@@ -9,6 +9,8 @@
 #include "idt.h"
 #include "irq.h"
 #include "pic.h"
+#include "timer.h"
+#include "keyboard.h"
 #include "../lib/kprintf.h"
 #include "../include/types.h"
 
@@ -43,22 +45,29 @@ static void print_info(void)
     kprintf("[OK] IDT                   armed\n");
     kprintf("[OK] PIC                   remapped\n");
     kprintf("[OK] IRQs                  registered\n");
+    kprintf("[OK] keyboard              ready\n");
     kprintf("[OK] kmain()               running\n\n");
 
     vga_set_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
     kprintf("kernel base:  %x\n", 0x8000);
     kprintf("stack top:    %x\n", 0x9F000);
     kprintf("mode:         32-bit protected\n\n");
+
+    vga_set_color(VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
+    kprintf("keyboard active — start typing:\n\n");
+    vga_set_color(VGA_COLOR_WHITE, VGA_COLOR_BLACK);
 }
 
 void kmain(void)
 {
     vga_init();
-    idt_init();     /* set up exception gates */
-    pic_init();     /* remap PIC before enabling interrupts */
-    irq_init();     /* register IRQ stubs in IDT at vectors 32-47 */
+    idt_init();
+    pic_init();
+    irq_init();
+    timer_init(1000);       /* 1000 Hz — 1 tick per millisecond */
+    keyboard_init();
 
-    __asm__ volatile ("sti");   /* interrupts on */
+    __asm__ volatile ("sti");
 
     print_banner();
     print_info();

@@ -32,12 +32,14 @@ BUILD_DIR := build
 
 BOOT_SRCS    := boot/stage2.asm
 
-KERNEL_SRCS  := kernel/main.c  \
-                kernel/vga.c   \
-                kernel/idt.c   \
-                kernel/isr.c   \
-                kernel/irq.c   \
-                kernel/pic.c
+KERNEL_SRCS  := kernel/main.c     \
+                kernel/vga.c      \
+                kernel/idt.c      \
+                kernel/isr.c      \
+                kernel/irq.c      \
+                kernel/pic.c      \
+                kernel/timer.c    \
+                kernel/keyboard.c
 
 KERNEL_ASMS  := kernel/isr_stubs.asm  \
                 kernel/irq_stubs.asm
