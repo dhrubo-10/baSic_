@@ -83,7 +83,6 @@ static void keyboard_irq_handler(registers_t *regs)
     char c = shift_held ? sc_ascii_shift[sc] : sc_ascii[sc];
     if (c) {
         last_char = c;
-        kprintf("%c", c);   /* echo to screen */
     }
 }
 
