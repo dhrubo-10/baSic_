@@ -35,14 +35,16 @@ BOOT_SRCS    := boot/stage2.asm
 KERNEL_SRCS  := kernel/main.c  \
                 kernel/vga.c   \
                 kernel/idt.c   \
-                kernel/isr.c
+                kernel/isr.c   \
+                kernel/irq.c   \
+                kernel/pic.c
 
-KERNEL_ASMS  := kernel/isr_stubs.asm
+KERNEL_ASMS  := kernel/isr_stubs.asm  \
+                kernel/irq_stubs.asm
 
 LIB_SRCS     := lib/string.c  \
                 lib/kprintf.c
 
-# -- objects ------------------------------------------------------------------
 BOOT_OBJS    := $(patsubst boot/%.asm,    $(BUILD_DIR)/boot/%.o,    $(BOOT_SRCS))
 KERNEL_OBJS  := $(patsubst kernel/%.c,    $(BUILD_DIR)/kernel/%.o,  $(KERNEL_SRCS))
 KERNEL_AOBJS := $(patsubst kernel/%.asm,  $(BUILD_DIR)/kernel/%.o,  $(KERNEL_ASMS))
