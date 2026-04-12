@@ -12,6 +12,8 @@
 #include "rtc.h"
 #include "../lib/kprintf.h"
 #include "../lib/string.h"
+#include "../mm/pmm.h"
+#include "../mm/pmm.h"
 #include "../include/types.h"
 
 #define VGA_WIDTH       80
@@ -62,7 +64,7 @@ static void write_dd(int col, int row, u8 val, u8 fg)
 /* top-right: real time + uptime, updated every second */
 static void update_clock(void)
 {
-    /* -- real time from RTC -- */
+    // real time from RTC  
     rtc_time_t t;
     rtc_read(&t);
 
@@ -82,7 +84,7 @@ static void update_clock(void)
     vga_write_at(62, 1, '-',  VGA_COLOR_DARK_GREY,  VGA_COLOR_BLACK);
     write_dd(63, 1, t.day,    VGA_COLOR_LIGHT_GREY);
 
-    /* -- uptime -- */
+    /* uptime  */
     u32 total_s = timer_ticks() / 1000;
     u8  h = (u8)(total_s / 3600);
     u8  m = (u8)((total_s % 3600) / 60);
@@ -165,6 +167,7 @@ static void cmd_help(void)
     shell_puts("  uptime  — show time since boot",   VGA_COLOR_LIGHT_GREY);
     shell_puts("  time    — show current date/time", VGA_COLOR_LIGHT_GREY);
     shell_puts("  about   — about baSic_",           VGA_COLOR_LIGHT_GREY);
+    shell_puts("  mem     — show memory usage",       VGA_COLOR_LIGHT_GREY);
     shell_puts("  halt    — stop the system",        VGA_COLOR_LIGHT_GREY);
 }
 
@@ -235,6 +238,16 @@ static void cmd_about(void)
     shell_puts("license: GPL v2",                                  VGA_COLOR_LIGHT_GREY);
 }
 
+static void cmd_mem(void)
+{
+    u32 total = pmm_total_frames() * 4;
+    u32 free  = pmm_free_frames()  * 4;
+    u32 used  = total - free;
+    kprintf("  total : %d KB\n", total);
+    kprintf("  used  : %d KB\n", used);
+    kprintf("  free  : %d KB\n", free);
+}
+
 static void cmd_halt(void)
 {
     shell_puts("halting system...", VGA_COLOR_LIGHT_RED);
@@ -250,6 +263,7 @@ static void dispatch(void)
     if (!strcmp(cmd_buf, "uptime")) { cmd_uptime(); return; }
     if (!strcmp(cmd_buf, "time"))   { cmd_time();   return; }
     if (!strcmp(cmd_buf, "about"))  { cmd_about();  return; }
+    if (!strcmp(cmd_buf, "mem"))    { cmd_mem();    return; }
     if (!strcmp(cmd_buf, "halt"))   { cmd_halt();   return; }
 
     char msg[CMD_BUF_SIZE + 16];

@@ -13,7 +13,12 @@
 #include "keyboard.h"
 #include "rtc.h"
 #include "shell.h"
+#include "../mm/pmm.h"
+#include "../mm/vmm.h"
+#include "../mm/heap.h"
 #include "../include/types.h"
+
+#define MEM_KB  32768   /* tell PMM we have 32 MB — adjust for real hardware */
 
 void kmain(void)
 {
@@ -24,9 +29,12 @@ void kmain(void)
     timer_init(1000);
     keyboard_init();
     rtc_init();
+    pmm_init(MEM_KB);
+    vmm_init();
+    heap_init();
 
     __asm__ volatile ("sti");
 
     shell_init();
-    shell_run();  
+    shell_run();
 }
