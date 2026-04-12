@@ -1,5 +1,4 @@
 # baSic_ Makefile
-# Toolchain: nasm, i686-elf-gcc (cross-compiler) or gcc -m32 as fallback
 
 AS      := nasm
 CC      := i686-elf-gcc
@@ -13,35 +12,43 @@ endif
 
 ASFLAGS := -f elf32
 
-CFLAGS  := -m32             \
-            -ffreestanding  \
+CFLAGS  := -m32              \
+            -ffreestanding   \
             -fno-stack-protector \
-            -fno-builtin    \
-            -fno-pic        \
-            -nostdlib       \
-            -nostdinc       \
-            -Wall           \
-            -Wextra         \
-            -O2             \
+            -fno-builtin     \
+            -fno-pic         \
+            -nostdlib        \
+            -nostdinc        \
+            -Wall            \
+            -Wextra          \
+            -O2              \
             -I include
 
-LDFLAGS := -T linker.ld     \
-            -melf_i386      \
+LDFLAGS := -T linker.ld      \
+            -melf_i386       \
             --oformat binary
 
 BUILD_DIR := build
 
-BOOT_SRCS   := boot/stage2.asm
-KERNEL_SRCS := kernel/main.c  \
-               kernel/vga.c
-LIB_SRCS    := lib/string.c   \
-               lib/kprintf.c
+BOOT_SRCS    := boot/stage2.asm
 
-BOOT_OBJS   := $(patsubst boot/%.asm,    $(BUILD_DIR)/boot/%.o,   $(BOOT_SRCS))
-KERNEL_OBJS := $(patsubst kernel/%.c,    $(BUILD_DIR)/kernel/%.o, $(KERNEL_SRCS))
-LIB_OBJS    := $(patsubst lib/%.c,       $(BUILD_DIR)/lib/%.o,    $(LIB_SRCS))
+KERNEL_SRCS  := kernel/main.c  \
+                kernel/vga.c   \
+                kernel/idt.c   \
+                kernel/isr.c
 
-ALL_OBJS := $(BOOT_OBJS) $(KERNEL_OBJS) $(LIB_OBJS)
+KERNEL_ASMS  := kernel/isr_stubs.asm
+
+LIB_SRCS     := lib/string.c  \
+                lib/kprintf.c
+
+# -- objects ------------------------------------------------------------------
+BOOT_OBJS    := $(patsubst boot/%.asm,    $(BUILD_DIR)/boot/%.o,    $(BOOT_SRCS))
+KERNEL_OBJS  := $(patsubst kernel/%.c,    $(BUILD_DIR)/kernel/%.o,  $(KERNEL_SRCS))
+KERNEL_AOBJS := $(patsubst kernel/%.asm,  $(BUILD_DIR)/kernel/%.o,  $(KERNEL_ASMS))
+LIB_OBJS     := $(patsubst lib/%.c,       $(BUILD_DIR)/lib/%.o,     $(LIB_SRCS))
+
+ALL_OBJS := $(BOOT_OBJS) $(KERNEL_OBJS) $(KERNEL_AOBJS) $(LIB_OBJS)
 
 MBR_BIN  := $(BUILD_DIR)/boot.bin
 KERN_BIN := $(BUILD_DIR)/kernel.bin
@@ -77,6 +84,10 @@ $(BUILD_DIR)/boot/%.o: boot/%.asm | $(BUILD_DIR)/boot
 $(BUILD_DIR)/kernel/%.o: kernel/%.c | $(BUILD_DIR)/kernel
 	@echo "[CC]  $<"
 	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/kernel/%.o: kernel/%.asm | $(BUILD_DIR)/kernel
+	@echo "[AS]  $<"
+	@$(AS) $(ASFLAGS) $< -o $@
 
 $(BUILD_DIR)/lib/%.o: lib/%.c | $(BUILD_DIR)/lib
 	@echo "[CC]  $<"

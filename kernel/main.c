@@ -6,9 +6,10 @@
  */
 
 #include "vga.h"
+#include "idt.h"
 #include "../lib/kprintf.h"
 #include "../include/types.h"
-
+ 
 static const char *banner[] = {
     "  _               _      ",
     " | |__   __ _ ___(_) ___ ",
@@ -17,7 +18,7 @@ static const char *banner[] = {
     " |_.__/ \\__,_|___/_|\\___|",
     0,
 };
-
+ 
 static void print_banner(void)
 {
     vga_set_color(VGA_COLOR_LIGHT_CYAN, VGA_COLOR_BLACK);
@@ -25,37 +26,35 @@ static void print_banner(void)
         kprintf("%s\n", banner[i]);
     kprintf("\n");
 }
-
+ 
 static void print_info(void)
 {
     vga_set_color(VGA_COLOR_WHITE, VGA_COLOR_BLACK);
-    kprintf("baSic_ v0.01 - Linux 0.01-inspired kernel\n");
-    kprintf("Inspired by Linus Torvalds, Dennis Ritchie, Ken Thompson\n\n");
-
+    kprintf("baSic_ v1.0\n");
+    kprintf("Created by Shahriar Dhrubo\n\n");
+ 
     vga_set_color(VGA_COLOR_LIGHT_GREEN, VGA_COLOR_BLACK);
     kprintf("[OK] stage 1 bootloader    loaded\n");
     kprintf("[OK] stage 2 (GDT + PM)   done\n");
     kprintf("[OK] VGA driver            ready\n");
     kprintf("[OK] kprintf               ready\n");
+    kprintf("[OK] IDT                   armed\n");
     kprintf("[OK] kmain()               running\n\n");
-
-    vga_set_color(VGA_COLOR_YELLOW, VGA_COLOR_BLACK);
-    kprintf("32-bit protected mode. next: IDT + PIC\n\n");
-
+ 
     vga_set_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
     kprintf("kernel base:  %x\n", 0x8000);
     kprintf("stack top:    %x\n", 0x9F000);
-
-    /* prove kprintf format specifiers work */
-    kprintf("decimal test: %d  unsigned: %u  char: %c\n", -42, 255u, 'K');
+    kprintf("mode:         32-bit protected\n\n");
 }
-
+ 
 void kmain(void)
 {
     vga_init();
+    idt_init();     /* arm the IDT before anything else can fault */
+ 
     print_banner();
     print_info();
-
+ 
     for (;;)
         __asm__ volatile ("hlt");
 }
