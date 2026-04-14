@@ -1,0 +1,46 @@
+/* baSic_ - kernel/process.h
+ * Copyright (C) 2026 Dhrubo
+ * GPL v2 — see LICENSE
+ *
+ * process structure and process table
+ */
+
+#ifndef PROCESS_H
+#define PROCESS_H
+
+#include "../include/types.h"
+
+#define PROC_MAX        16
+#define PROC_STACK_SIZE 4096
+
+typedef enum {
+    PROC_UNUSED = 0,
+    PROC_READY,
+    PROC_RUNNING,
+    PROC_SLEEPING,
+    PROC_DEAD,
+} proc_state_t;
+
+/* saved CPU register state for context switch */
+typedef struct {
+    u32 eax, ecx, edx, ebx;
+    u32 esp, ebp, esi, edi;
+    u32 eip;
+    u32 eflags;
+} cpu_context_t;
+
+typedef struct {
+    u32           pid;
+    proc_state_t  state;
+    cpu_context_t ctx;
+    u32           stack_top;    /* top of kernel stack */
+    u8            stack[PROC_STACK_SIZE];
+    char          name[32];
+} process_t;
+
+void       proc_init(void);
+process_t *proc_create(const char *name, u32 entry);
+process_t *proc_current(void);
+u32        proc_getpid(void);
+
+#endif
