@@ -32,19 +32,24 @@ BUILD_DIR := build
 
 BOOT_SRCS    := boot/stage2.asm
 
-KERNEL_SRCS  := kernel/main.c     \
-                kernel/vga.c      \
-                kernel/idt.c      \
-                kernel/isr.c      \
-                kernel/irq.c      \
-                kernel/pic.c      \
-                kernel/timer.c    \
-                kernel/keyboard.c \
-                kernel/rtc.c      \
+KERNEL_SRCS  := kernel/main.c      \
+                kernel/vga.c       \
+                kernel/idt.c       \
+                kernel/isr.c       \
+                kernel/irq.c       \
+                kernel/pic.c       \
+                kernel/timer.c     \
+                kernel/keyboard.c  \
+                kernel/rtc.c       \
+                kernel/elf.c       \
+                kernel/syscall.c   \
+                kernel/process.c   \
+                kernel/sched.c     \
                 kernel/shell.c
 
-KERNEL_ASMS  := kernel/isr_stubs.asm  \
-                kernel/irq_stubs.asm
+KERNEL_ASMS  := kernel/isr_stubs.asm   \
+                kernel/irq_stubs.asm   \
+                kernel/syscall_stub.asm
 
 MM_SRCS      := mm/pmm.c  \
                 mm/vmm.c  \
@@ -57,12 +62,12 @@ FS_SRCS      := fs/vfs.c    \
 LIB_SRCS     := lib/string.c  \
                 lib/kprintf.c
 
-BOOT_OBJS    := $(patsubst boot/%.asm,   $(BUILD_DIR)/boot/%.o,    $(BOOT_SRCS))
-KERNEL_OBJS  := $(patsubst kernel/%.c,   $(BUILD_DIR)/kernel/%.o,  $(KERNEL_SRCS))
-KERNEL_AOBJS := $(patsubst kernel/%.asm, $(BUILD_DIR)/kernel/%.o,  $(KERNEL_ASMS))
-MM_OBJS      := $(patsubst mm/%.c,       $(BUILD_DIR)/mm/%.o,      $(MM_SRCS))
-FS_OBJS      := $(patsubst fs/%.c,       $(BUILD_DIR)/fs/%.o,      $(FS_SRCS))
-LIB_OBJS     := $(patsubst lib/%.c,      $(BUILD_DIR)/lib/%.o,     $(LIB_SRCS))
+BOOT_OBJS    := $(patsubst boot/%.asm,    $(BUILD_DIR)/boot/%.o,    $(BOOT_SRCS))
+KERNEL_OBJS  := $(patsubst kernel/%.c,    $(BUILD_DIR)/kernel/%.o,  $(KERNEL_SRCS))
+KERNEL_AOBJS := $(patsubst kernel/%.asm,  $(BUILD_DIR)/kernel/%.o,  $(KERNEL_ASMS))
+MM_OBJS      := $(patsubst mm/%.c,        $(BUILD_DIR)/mm/%.o,      $(MM_SRCS))
+FS_OBJS      := $(patsubst fs/%.c,        $(BUILD_DIR)/fs/%.o,      $(FS_SRCS))
+LIB_OBJS     := $(patsubst lib/%.c,       $(BUILD_DIR)/lib/%.o,     $(LIB_SRCS))
 
 ALL_OBJS := $(BOOT_OBJS) $(KERNEL_OBJS) $(KERNEL_AOBJS) $(MM_OBJS) $(FS_OBJS) $(LIB_OBJS)
 

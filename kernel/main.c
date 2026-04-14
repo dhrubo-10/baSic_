@@ -12,6 +12,9 @@
 #include "timer.h"
 #include "keyboard.h"
 #include "rtc.h"
+#include "syscall.h"
+#include "process.h"
+#include "sched.h"
 #include "shell.h"
 #include "../mm/pmm.h"
 #include "../mm/vmm.h"
@@ -21,7 +24,7 @@
 #include "../fs/fd.h"
 #include "../include/types.h"
 
-#define MEM_KB  32768   /* tell PMM we have 32 MB — adjust for real hardware */
+#define MEM_KB  32768
 
 void kmain(void)
 {
@@ -41,7 +44,13 @@ void kmain(void)
     vfs_set_root(root);
     fd_init();
 
+    syscall_init();
+    proc_init();
+    sched_init();
+
     __asm__ volatile ("sti");
+
+    sched_start();
 
     shell_init();
     shell_run();
