@@ -18,5 +18,6 @@ u32 timer_ticks(void);
 
 /* busy/wait for approximately ms milliseconds */
 void timer_sleep(u32 ms);
+void timer_tick_increment(void);
 
 #endif

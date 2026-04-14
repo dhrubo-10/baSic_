@@ -24,16 +24,13 @@
 static volatile u32 tick_count = 0;
 static u32 ticks_per_ms = 0;
 
+extern void sched_tick(registers_t *regs);
+
+static void timer_irq_handler(registers_t *regs);
+
 static inline void outb(u16 port, u8 val)
 {
     __asm__ volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
-}
-
-/* IRQ 0 handler fires at the configured frequency */
-static void timer_irq_handler(registers_t *regs)
-{
-    (void)regs;
-    tick_count++;
 }
 
 void timer_init(u32 freq)
@@ -65,4 +62,15 @@ void timer_sleep(u32 ms)
     u32 target = tick_count + (ms * ticks_per_ms);
     while (tick_count < target)
         __asm__ volatile ("hlt");   /* yield CPU until next IRQ wakes us */
+}
+
+void timer_tick_increment(void)
+{
+    tick_count++;
+}
+
+static void timer_irq_handler(registers_t *regs)
+{
+    tick_count++;
+    sched_tick(regs);
 }
