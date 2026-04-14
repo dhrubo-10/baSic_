@@ -12,6 +12,7 @@
 #include "timer.h"
 #include "keyboard.h"
 #include "rtc.h"
+#include "serial.h"
 #include "syscall.h"
 #include "process.h"
 #include "sched.h"
@@ -35,6 +36,7 @@ void kmain(void)
     timer_init(1000);
     keyboard_init();
     rtc_init();
+    serial_init();
     pmm_init(MEM_KB);
     vmm_init();
     heap_init();
@@ -49,7 +51,6 @@ void kmain(void)
     sched_init();
 
     __asm__ volatile ("sti");
-
     sched_start();
 
     shell_init();

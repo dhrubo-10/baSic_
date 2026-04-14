@@ -41,14 +41,16 @@ KERNEL_SRCS  := kernel/main.c      \
                 kernel/timer.c     \
                 kernel/keyboard.c  \
                 kernel/rtc.c       \
+                kernel/serial.c    \
                 kernel/elf.c       \
                 kernel/syscall.c   \
                 kernel/process.c   \
                 kernel/sched.c     \
-                kernel/shell.c
+                kernel/shell.c     \
+                kernel/shooter.c
 
-KERNEL_ASMS  := kernel/isr_stubs.asm   \
-                kernel/irq_stubs.asm   \
+KERNEL_ASMS  := kernel/isr_stubs.asm    \
+                kernel/irq_stubs.asm    \
                 kernel/syscall_stub.asm
 
 MM_SRCS      := mm/pmm.c  \
