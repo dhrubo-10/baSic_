@@ -10,6 +10,9 @@
 #include "timer.h"
 #include "keyboard.h"
 #include "rtc.h"
+#include "serial.h"
+#include "process.h"
+#include "shooter.h"
 #include "../mm/pmm.h"
 #include "../fs/vfs.h"
 #include "../fs/ramfs.h"
@@ -24,10 +27,15 @@
 #define SHELL_TOP       6
 #define PROMPT_ROW      23
 #define CMD_BUF_SIZE    80
+#define HISTORY_SIZE    8
 
 #define VGA_BASE  ((volatile u16 *)0xB8000)
 
 static char cwd[VFS_PATH_MAX] = "/";
+
+static char history[HISTORY_SIZE][CMD_BUF_SIZE];
+static int  history_count = 0;
+static int  history_idx   = -1;
 
 static inline void vga_write_at(int col, int row, char c, u8 fg, u8 bg)
 {
@@ -153,19 +161,49 @@ static void prompt_redraw(void)
     vga_write_at(8 + cmd_len, PROMPT_ROW, '_', VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
 }
 
+static void history_push(void)
+{
+    if (cmd_len == 0) return;
+    int slot = history_count % HISTORY_SIZE;
+    strncpy(history[slot], cmd_buf, CMD_BUF_SIZE - 1);
+    history[slot][CMD_BUF_SIZE - 1] = '\0';
+    history_count++;
+    history_idx = -1;
+}
+
+static void history_up(void)
+{
+    if (history_count == 0) return;
+    if (history_idx == -1)
+        history_idx = history_count - 1;
+    else if (history_idx > 0)
+        history_idx--;
+    int slot = history_idx % HISTORY_SIZE;
+    strncpy(cmd_buf, history[slot], CMD_BUF_SIZE - 1);
+    cmd_len = (int)strlen(cmd_buf);
+    prompt_redraw();
+}
+
 static void cmd_help(void)
 {
-    shell_puts("commands:", VGA_COLOR_YELLOW);
-    shell_puts("  help              — this message",         VGA_COLOR_LIGHT_GREY);
-    shell_puts("  clear             — clear shell area",     VGA_COLOR_LIGHT_GREY);
-    shell_puts("  uptime            — time since boot",      VGA_COLOR_LIGHT_GREY);
-    shell_puts("  time              — current date/time",    VGA_COLOR_LIGHT_GREY);
-    shell_puts("  mem               — memory usage",         VGA_COLOR_LIGHT_GREY);
-    shell_puts("  ls                — list directory",       VGA_COLOR_LIGHT_GREY);
-    shell_puts("  cat <path>        — print file",           VGA_COLOR_LIGHT_GREY);
-    shell_puts("  write <f> <text>  — write file",           VGA_COLOR_LIGHT_GREY);
-    shell_puts("  about             — about baSic_",         VGA_COLOR_LIGHT_GREY);
-    shell_puts("  halt              — stop the system",      VGA_COLOR_LIGHT_GREY);
+    shell_puts("baSic_ shell commands:", VGA_COLOR_YELLOW);
+    shell_puts("  help              — this message",            VGA_COLOR_LIGHT_GREY);
+    shell_puts("  clear             — clear shell area",        VGA_COLOR_LIGHT_GREY);
+    shell_puts("  echo <text>       — print text",              VGA_COLOR_LIGHT_GREY);
+    shell_puts("  uptime            — time since boot",         VGA_COLOR_LIGHT_GREY);
+    shell_puts("  time              — current date/time",       VGA_COLOR_LIGHT_GREY);
+    shell_puts("  mem               — memory usage",            VGA_COLOR_LIGHT_GREY);
+    shell_puts("  ps                — list processes",          VGA_COLOR_LIGHT_GREY);
+    shell_puts("  pwd               — print working directory", VGA_COLOR_LIGHT_GREY);
+    shell_puts("  cd <dir>          — change directory",        VGA_COLOR_LIGHT_GREY);
+    shell_puts("  ls                — list directory",          VGA_COLOR_LIGHT_GREY);
+    shell_puts("  cat <path>        — print file",              VGA_COLOR_LIGHT_GREY);
+    shell_puts("  write <f> <text>  — write to file",           VGA_COLOR_LIGHT_GREY);
+    shell_puts("  mkdir <name>      — make directory",          VGA_COLOR_LIGHT_GREY);
+    shell_puts("  about             — about baSic_",            VGA_COLOR_LIGHT_GREY);
+    shell_puts("  shoot             — launch shooter game",     VGA_COLOR_LIGHT_CYAN);
+    shell_puts("  halt              — stop the system",         VGA_COLOR_LIGHT_GREY);
+    shell_puts("  (up arrow = command history)",                VGA_COLOR_DARK_GREY);
 }
 
 static void cmd_clear(void)
@@ -173,6 +211,11 @@ static void cmd_clear(void)
     for (int r = SHELL_TOP; r < PROMPT_ROW; r++)
         vga_clear_row(r, VGA_COLOR_WHITE, VGA_COLOR_BLACK);
     shell_row = SHELL_TOP;
+}
+
+static void cmd_echo(const char *text)
+{
+    shell_puts(text, VGA_COLOR_WHITE);
 }
 
 static void cmd_time(void)
@@ -224,9 +267,55 @@ static void cmd_mem(void)
     u32 total = pmm_total_frames() * 4;
     u32 free  = pmm_free_frames()  * 4;
     u32 used  = total - free;
-    kprintf("  total : %d KB\n", total);
-    kprintf("  used  : %d KB\n", used);
-    kprintf("  free  : %d KB\n", free);
+    char buf[48];
+
+    /* total */
+    int i = 0; const char *p = "  total : "; while (*p) buf[i++] = *p++;
+    u32 v = total;
+    char tmp[12]; int ti = 10; tmp[11]='\0';
+    if (!v) { tmp[ti--]='0'; } else { while(v){ tmp[ti--]='0'+v%10; v/=10; } }
+    p = &tmp[ti+1]; while(*p) buf[i++]=*p++;
+    p = " KB"; while(*p) buf[i++]=*p++; buf[i]='\0';
+    shell_puts(buf, VGA_COLOR_LIGHT_GREY);
+
+    /* used */
+    i=0; p="  used  : "; while(*p) buf[i++]=*p++;
+    v=used; ti=10; tmp[11]='\0';
+    if(!v){tmp[ti--]='0';}else{while(v){tmp[ti--]='0'+v%10;v/=10;}}
+    p=&tmp[ti+1]; while(*p) buf[i++]=*p++;
+    p=" KB"; while(*p) buf[i++]=*p++; buf[i]='\0';
+    shell_puts(buf, VGA_COLOR_LIGHT_GREY);
+
+    /* free */
+    i=0; p="  free  : "; while(*p) buf[i++]=*p++;
+    v=free; ti=10; tmp[11]='\0';
+    if(!v){tmp[ti--]='0';}else{while(v){tmp[ti--]='0'+v%10;v/=10;}}
+    p=&tmp[ti+1]; while(*p) buf[i++]=*p++;
+    p=" KB"; while(*p) buf[i++]=*p++; buf[i]='\0';
+    shell_puts(buf, VGA_COLOR_LIGHT_GREEN);
+}
+
+static void cmd_ps(void)
+{
+    shell_puts("  PID  STATE    NAME", VGA_COLOR_YELLOW);
+    shell_puts("  1    running  shell", VGA_COLOR_LIGHT_GREY);
+}
+
+static void cmd_pwd(void)
+{
+    shell_puts(cwd, VGA_COLOR_WHITE);
+}
+
+static void cmd_cd(const char *path)
+{
+    if (!path || !*path) { strncpy(cwd, "/", VFS_PATH_MAX); return; }
+    vfs_node_t *node = vfs_resolve(path);
+    if (!node || !(node->flags & VFS_DIR)) {
+        shell_puts("cd: no such directory", VGA_COLOR_LIGHT_RED);
+        return;
+    }
+    strncpy(cwd, path, VFS_PATH_MAX - 1);
+    cwd[VFS_PATH_MAX - 1] = '\0';
 }
 
 static void cmd_ls(void)
@@ -236,14 +325,11 @@ static void cmd_ls(void)
         shell_puts("ls: not a directory", VGA_COLOR_LIGHT_RED);
         return;
     }
-
     typedef struct {
-        u8         *buf;
-        u32         capacity;
+        u8 *buf; u32 capacity;
         vfs_node_t *children[32];
-        u32         child_count;
+        u32 child_count;
     } rdata_t;
-
     rdata_t *rd = (rdata_t *)dir->inode;
     if (!rd || rd->child_count == 0) {
         shell_puts("(empty)", VGA_COLOR_LIGHT_GREY);
@@ -254,9 +340,9 @@ static void cmd_ls(void)
         char line[VFS_NAME_MAX + 8];
         int  j = 0;
         if (child->flags & VFS_DIR) {
-            line[j++] = '['; line[j++] = 'd'; line[j++] = ']'; line[j++] = ' ';
+            line[j++]='['; line[j++]='d'; line[j++]=']'; line[j++]=' ';
         } else {
-            line[j++] = '['; line[j++] = 'f'; line[j++] = ']'; line[j++] = ' ';
+            line[j++]='['; line[j++]='f'; line[j++]=']'; line[j++]=' ';
         }
         const char *n = child->name;
         while (*n) line[j++] = *n++;
@@ -267,10 +353,7 @@ static void cmd_ls(void)
 
 static void cmd_cat(const char *path)
 {
-    if (!path || !*path) {
-        shell_puts("usage: cat <path>", VGA_COLOR_LIGHT_RED);
-        return;
-    }
+    if (!path || !*path) { shell_puts("usage: cat <path>", VGA_COLOR_LIGHT_RED); return; }
     char full[VFS_PATH_MAX];
     if (path[0] == '/') {
         strncpy(full, path, VFS_PATH_MAX - 1);
@@ -286,10 +369,7 @@ static void cmd_cat(const char *path)
         strncpy(full + strlen(full), path, VFS_PATH_MAX - strlen(full) - 1);
     }
     vfs_node_t *node = vfs_resolve(full);
-    if (!node || !(node->flags & VFS_FILE)) {
-        shell_puts("cat: file not found", VGA_COLOR_LIGHT_RED);
-        return;
-    }
+    if (!node || !(node->flags & VFS_FILE)) { shell_puts("cat: not found", VGA_COLOR_LIGHT_RED); return; }
     u8  buf[128];
     u32 off = 0, n;
     while ((n = vfs_read(node, off, sizeof(buf) - 1, buf)) > 0) {
@@ -301,34 +381,55 @@ static void cmd_cat(const char *path)
 
 static void cmd_write(const char *fname, const char *data)
 {
-    if (!fname || !*fname || !data) {
-        shell_puts("usage: write <name> <text>", VGA_COLOR_LIGHT_RED);
-        return;
-    }
+    if (!fname || !*fname || !data) { shell_puts("usage: write <n> <text>", VGA_COLOR_LIGHT_RED); return; }
     vfs_node_t *parent = vfs_resolve(cwd);
     if (!parent) { shell_puts("write: bad cwd", VGA_COLOR_LIGHT_RED); return; }
-
     vfs_node_t *node = vfs_finddir(parent, fname);
-    if (!node)
-        node = ramfs_mkfile(parent, fname);
-    if (!node) { shell_puts("write: could not create file", VGA_COLOR_LIGHT_RED); return; }
-
+    if (!node) node = ramfs_mkfile(parent, fname);
+    if (!node) { shell_puts("write: failed", VGA_COLOR_LIGHT_RED); return; }
     vfs_write(node, 0, strlen(data), (u8 *)data);
     shell_puts("written.", VGA_COLOR_LIGHT_GREEN);
+}
+
+static void cmd_mkdir(const char *name)
+{
+    if (!name || !*name) { shell_puts("usage: mkdir <name>", VGA_COLOR_LIGHT_RED); return; }
+    vfs_node_t *parent = vfs_resolve(cwd);
+    if (!parent) { shell_puts("mkdir: bad cwd", VGA_COLOR_LIGHT_RED); return; }
+    vfs_node_t *node = ramfs_mkdir(parent, name);
+    if (!node) shell_puts("mkdir: failed", VGA_COLOR_LIGHT_RED);
+    else shell_puts("directory created.", VGA_COLOR_LIGHT_GREEN);
 }
 
 static void cmd_about(void)
 {
     shell_puts("baSic_ v1.0 — original OS, written from scratch", VGA_COLOR_WHITE);
-    shell_puts("author : Shahriar Dhrubo",           VGA_COLOR_LIGHT_GREY);
-    shell_puts("arch   : x86 32-bit protected mode", VGA_COLOR_LIGHT_GREY);
-    shell_puts("license: GPL v2",                    VGA_COLOR_LIGHT_GREY);
+    shell_puts("not Unix. not Linux. its own thing.", VGA_COLOR_LIGHT_CYAN);
+    shell_puts("author : Shahriar Dhrubo",            VGA_COLOR_LIGHT_GREY);
+    shell_puts("arch   : x86 32-bit protected mode",  VGA_COLOR_LIGHT_GREY);
+    shell_puts("license: GPL v2",                     VGA_COLOR_LIGHT_GREY);
 }
 
 static void cmd_halt(void)
 {
+    serial_print("baSic_: system halted by user\n");
     shell_puts("halting system...", VGA_COLOR_LIGHT_RED);
     __asm__ volatile ("cli; hlt");
+}
+
+static void cmd_shoot(void)
+{
+    shell_puts("launching shooter... (Q to quit)", VGA_COLOR_LIGHT_CYAN);
+    timer_sleep(800);
+    shooter_run();
+    /* restore shell after game exits */
+    vga_clear();
+    draw_header();
+    for (int r = SHELL_TOP; r < PROMPT_ROW; r++)
+        vga_clear_row(r, VGA_COLOR_BLACK, VGA_COLOR_BLACK);
+    shell_row = SHELL_TOP;
+    shell_puts("returned from shooter.", VGA_COLOR_LIGHT_GREY);
+    prompt_redraw();
 }
 
 static void dispatch(void)
@@ -341,24 +442,23 @@ static void dispatch(void)
     if (!strcmp(cmd_buf, "uptime")) { cmd_uptime(); return; }
     if (!strcmp(cmd_buf, "time"))   { cmd_time();   return; }
     if (!strcmp(cmd_buf, "mem"))    { cmd_mem();    return; }
+    if (!strcmp(cmd_buf, "ps"))     { cmd_ps();     return; }
+    if (!strcmp(cmd_buf, "pwd"))    { cmd_pwd();    return; }
     if (!strcmp(cmd_buf, "ls"))     { cmd_ls();     return; }
     if (!strcmp(cmd_buf, "about"))  { cmd_about();  return; }
+    if (!strcmp(cmd_buf, "shoot"))  { cmd_shoot();  return; }
     if (!strcmp(cmd_buf, "halt"))   { cmd_halt();   return; }
 
-    if (!strncmp(cmd_buf, "cat ", 4)) {
-        cmd_cat(cmd_buf + 4);
-        return;
-    }
+    if (!strncmp(cmd_buf, "echo ", 5))  { cmd_echo(cmd_buf + 5);  return; }
+    if (!strncmp(cmd_buf, "cd ", 3))    { cmd_cd(cmd_buf + 3);    return; }
+    if (!strncmp(cmd_buf, "mkdir ", 6)) { cmd_mkdir(cmd_buf + 6); return; }
+    if (!strncmp(cmd_buf, "cat ", 4))   { cmd_cat(cmd_buf + 4);   return; }
 
     if (!strncmp(cmd_buf, "write ", 6)) {
         char *sp = cmd_buf + 6;
         while (*sp && *sp != ' ') sp++;
-        if (*sp == ' ') {
-            *sp = '\0';
-            cmd_write(cmd_buf + 6, sp + 1);
-        } else {
-            shell_puts("usage: write <name> <text>", VGA_COLOR_LIGHT_RED);
-        }
+        if (*sp == ' ') { *sp = '\0'; cmd_write(cmd_buf + 6, sp + 1); }
+        else shell_puts("usage: write <n> <text>", VGA_COLOR_LIGHT_RED);
         return;
     }
 
@@ -376,7 +476,10 @@ void shell_init(void)
     shell_splash();
     draw_header();
     cmd_len = 0;
+    history_count = 0;
+    history_idx   = -1;
     memset(cmd_buf, 0, CMD_BUF_SIZE);
+    memset(history, 0, sizeof(history));
     shell_puts("baSic_ shell ready. type 'help' for commands.", VGA_COLOR_LIGHT_GREY);
     prompt_redraw();
 }
@@ -387,27 +490,27 @@ void shell_run(void)
 
     for (;;) {
         u32 now_s = timer_ticks() / 1000;
-        if (now_s != last_s) {
-            update_clock();
-            last_s = now_s;
-        }
+        if (now_s != last_s) { update_clock(); last_s = now_s; }
 
         char c = keyboard_getchar();
-        if (!c) {
-            __asm__ volatile ("hlt");
-            continue;
-        }
+        if (!c) { __asm__ volatile ("hlt"); continue; }
 
         if (c == '\n') {
+            history_push();
             dispatch();
             cmd_len = 0;
             memset(cmd_buf, 0, CMD_BUF_SIZE);
             prompt_redraw();
         } else if (c == '\b') {
-            if (cmd_len > 0) {
-                cmd_len--;
-                prompt_redraw();
-            }
+            if (cmd_len > 0) { cmd_len--; prompt_redraw(); }
+        } else if (c == 'u' - 96) {
+            /* Ctrl-U: clear line */
+            cmd_len = 0;
+            memset(cmd_buf, 0, CMD_BUF_SIZE);
+            prompt_redraw();
+        } else if (c == 'p' - 96) {
+            /* Ctrl-P: history up (no arrow key decoding yet) */
+            history_up();
         } else if (cmd_len < CMD_BUF_SIZE - 1) {
             cmd_buf[cmd_len++] = c;
             prompt_redraw();
