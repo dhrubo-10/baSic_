@@ -16,6 +16,9 @@
 #include "../mm/pmm.h"
 #include "../mm/vmm.h"
 #include "../mm/heap.h"
+#include "../fs/vfs.h"
+#include "../fs/ramfs.h"
+#include "../fs/fd.h"
 #include "../include/types.h"
 
 #define MEM_KB  32768   /* tell PMM we have 32 MB — adjust for real hardware */
@@ -32,6 +35,11 @@ void kmain(void)
     pmm_init(MEM_KB);
     vmm_init();
     heap_init();
+
+    vfs_init();
+    vfs_node_t *root = ramfs_init();
+    vfs_set_root(root);
+    fd_init();
 
     __asm__ volatile ("sti");
 

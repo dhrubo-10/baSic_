@@ -50,16 +50,21 @@ MM_SRCS      := mm/pmm.c  \
                 mm/vmm.c  \
                 mm/heap.c
 
+FS_SRCS      := fs/vfs.c    \
+                fs/ramfs.c  \
+                fs/fd.c
+
 LIB_SRCS     := lib/string.c  \
                 lib/kprintf.c
 
-BOOT_OBJS    := $(patsubst boot/%.asm,  $(BUILD_DIR)/boot/%.o,    $(BOOT_SRCS))
-KERNEL_OBJS  := $(patsubst kernel/%.c,  $(BUILD_DIR)/kernel/%.o,  $(KERNEL_SRCS))
-KERNEL_AOBJS := $(patsubst kernel/%.asm,$(BUILD_DIR)/kernel/%.o,  $(KERNEL_ASMS))
-MM_OBJS      := $(patsubst mm/%.c,      $(BUILD_DIR)/mm/%.o,      $(MM_SRCS))
-LIB_OBJS     := $(patsubst lib/%.c,     $(BUILD_DIR)/lib/%.o,     $(LIB_SRCS))
+BOOT_OBJS    := $(patsubst boot/%.asm,   $(BUILD_DIR)/boot/%.o,    $(BOOT_SRCS))
+KERNEL_OBJS  := $(patsubst kernel/%.c,   $(BUILD_DIR)/kernel/%.o,  $(KERNEL_SRCS))
+KERNEL_AOBJS := $(patsubst kernel/%.asm, $(BUILD_DIR)/kernel/%.o,  $(KERNEL_ASMS))
+MM_OBJS      := $(patsubst mm/%.c,       $(BUILD_DIR)/mm/%.o,      $(MM_SRCS))
+FS_OBJS      := $(patsubst fs/%.c,       $(BUILD_DIR)/fs/%.o,      $(FS_SRCS))
+LIB_OBJS     := $(patsubst lib/%.c,      $(BUILD_DIR)/lib/%.o,     $(LIB_SRCS))
 
-ALL_OBJS := $(BOOT_OBJS) $(KERNEL_OBJS) $(KERNEL_AOBJS) $(MM_OBJS) $(LIB_OBJS)
+ALL_OBJS := $(BOOT_OBJS) $(KERNEL_OBJS) $(KERNEL_AOBJS) $(MM_OBJS) $(FS_OBJS) $(LIB_OBJS)
 
 MBR_BIN  := $(BUILD_DIR)/boot.bin
 KERN_BIN := $(BUILD_DIR)/kernel.bin
@@ -104,6 +109,10 @@ $(BUILD_DIR)/mm/%.o: mm/%.c | $(BUILD_DIR)/mm
 	@echo "[CC]  $<"
 	@$(CC) $(CFLAGS) -c $< -o $@
 
+$(BUILD_DIR)/fs/%.o: fs/%.c | $(BUILD_DIR)/fs
+	@echo "[CC]  $<"
+	@$(CC) $(CFLAGS) -c $< -o $@
+
 $(BUILD_DIR)/lib/%.o: lib/%.c | $(BUILD_DIR)/lib
 	@echo "[CC]  $<"
 	@$(CC) $(CFLAGS) -c $< -o $@
@@ -115,6 +124,9 @@ $(BUILD_DIR)/kernel:
 	@mkdir -p $@
 
 $(BUILD_DIR)/mm:
+	@mkdir -p $@
+
+$(BUILD_DIR)/fs:
 	@mkdir -p $@
 
 $(BUILD_DIR)/lib:
