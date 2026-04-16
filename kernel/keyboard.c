@@ -5,13 +5,12 @@
  * PS/2 keyboard driver: scancode set 1 to ASCII
  * hooks into IRQ 1 via the IRQ dispatch table
  */
-
 #include "keyboard.h"
 #include "irq.h"
 #include "idt.h"
 #include "../lib/kprintf.h"
 
-#define KBD_DATA_PORT   0x60    /* read scancodes from here */
+#define KBD_DATA_PORT   0x60
 
 static const char sc_ascii[] = {
 /*  0     1     2     3     4     5     6     7  */
@@ -32,7 +31,6 @@ static const char sc_ascii[] = {
     0,   ' ',
 };
 
-/* shifted scancode → ASCII */
 static const char sc_ascii_shift[] = {
     0,    0,   '!',  '@',  '#',  '$',  '%',  '^',
    '&',  '*',  '(',  ')',  '_',  '+',  '\b',  '\t',
@@ -48,6 +46,7 @@ static const char sc_ascii_shift[] = {
 
 static volatile char last_char = 0;
 static int shift_held = 0;
+static int ctrl_held  = 0;
 
 static inline u8 inb(u16 port)
 {
@@ -56,40 +55,41 @@ static inline u8 inb(u16 port)
     return val;
 }
 
-/* IRQ 1 handler — called on every keypress/release */
 static void keyboard_irq_handler(registers_t *regs)
 {
     (void)regs;
-
     u8 sc = inb(KBD_DATA_PORT);
 
-    /* bit 7 set = key release */
     if (sc & 0x80) {
         u8 released = sc & 0x7F;
         if (released == 0x2A || released == 0x36)
             shift_held = 0;
+        if (released == 0x1D)
+            ctrl_held = 0;
         return;
     }
 
-    /* track shift */
-    if (sc == 0x2A || sc == 0x36) {
-        shift_held = 1;
-        return;
-    }
+    if (sc == 0x2A || sc == 0x36) { shift_held = 1; return; }
+    if (sc == 0x1D)                { ctrl_held  = 1; return; }
 
     if (sc >= SC_TABLE_SIZE)
         return;
 
     char c = shift_held ? sc_ascii_shift[sc] : sc_ascii[sc];
     if (c) {
+        if (ctrl_held && c >= 'a' && c <= 'z')
+            c = c - 96;
+        else if (ctrl_held && c >= 'A' && c <= 'Z')
+            c = c - 64;
         last_char = c;
     }
 }
 
 void keyboard_init(void)
 {
-    last_char = 0;
+    last_char  = 0;
     shift_held = 0;
+    ctrl_held  = 0;
     irq_register(1, keyboard_irq_handler);
 }
 
