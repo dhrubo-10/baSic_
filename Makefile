@@ -46,6 +46,7 @@ KERNEL_SRCS  := kernel/main.c      \
                 kernel/syscall.c   \
                 kernel/process.c   \
                 kernel/sched.c     \
+                kernel/editor.c    \
                 kernel/shell.c     \
                 kernel/shooter.c
 
