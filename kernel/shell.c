@@ -13,6 +13,7 @@
 #include "serial.h"
 #include "process.h"
 #include "shooter.h"
+#include "editor.h"
 #include "../mm/pmm.h"
 #include "../fs/vfs.h"
 #include "../fs/ramfs.h"
@@ -200,6 +201,7 @@ static void cmd_help(void)
     shell_puts("  cat <path>        — print file",              VGA_COLOR_LIGHT_GREY);
     shell_puts("  write <f> <text>  — write to file",           VGA_COLOR_LIGHT_GREY);
     shell_puts("  mkdir <name>      — make directory",          VGA_COLOR_LIGHT_GREY);
+    shell_puts("  edit <file>       — open text editor",        VGA_COLOR_LIGHT_CYAN);
     shell_puts("  about             — about baSic_",            VGA_COLOR_LIGHT_GREY);
     shell_puts("  shoot             — launch shooter game",     VGA_COLOR_LIGHT_CYAN);
     shell_puts("  halt              — stop the system",         VGA_COLOR_LIGHT_GREY);
@@ -401,6 +403,37 @@ static void cmd_mkdir(const char *name)
     else shell_puts("directory created.", VGA_COLOR_LIGHT_GREEN);
 }
 
+static void cmd_edit(const char *path)
+{
+    if (!path || !*path) {
+        shell_puts("usage: edit <path>", VGA_COLOR_LIGHT_RED);
+        return;
+    }
+    char full[VFS_PATH_MAX];
+    if (path[0] == '/') {
+        strncpy(full, path, VFS_PATH_MAX - 1);
+        full[VFS_PATH_MAX - 1] = '\0';
+    } else {
+        strncpy(full, cwd, VFS_PATH_MAX - 1);
+        full[VFS_PATH_MAX - 1] = '\0';
+        usize cwdlen = strlen(full);
+        if (cwdlen < VFS_PATH_MAX - 2 && full[cwdlen - 1] != '/') {
+            full[cwdlen++] = '/';
+            full[cwdlen]   = '\0';
+        }
+        strncpy(full + strlen(full), path, VFS_PATH_MAX - strlen(full) - 1);
+    }
+    editor_open(full);
+    /* restore shell after editor exits */
+    vga_clear();
+    draw_header();
+    for (int r = SHELL_TOP; r < PROMPT_ROW; r++)
+        vga_clear_row(r, VGA_COLOR_BLACK, VGA_COLOR_BLACK);
+    shell_row = SHELL_TOP;
+    shell_puts("returned from editor.", VGA_COLOR_LIGHT_GREY);
+    prompt_redraw();
+}
+
 static void cmd_about(void)
 {
     shell_puts("baSic_ v1.0 — original OS, written from scratch", VGA_COLOR_WHITE);
@@ -446,6 +479,7 @@ static void dispatch(void)
     if (!strcmp(cmd_buf, "pwd"))    { cmd_pwd();    return; }
     if (!strcmp(cmd_buf, "ls"))     { cmd_ls();     return; }
     if (!strcmp(cmd_buf, "about"))  { cmd_about();  return; }
+    if (!strncmp(cmd_buf, "edit ", 5)) { cmd_edit(cmd_buf + 5); return; }
     if (!strcmp(cmd_buf, "shoot"))  { cmd_shoot();  return; }
     if (!strcmp(cmd_buf, "halt"))   { cmd_halt();   return; }
 

@@ -1,8 +1,10 @@
-#ifndef VGA_H
-#define VGA_H
+#ifndef KERNEL_VGA_H
+#define KERNEL_VGA_H
 
 #include "../include/types.h"
 
+#define VGA_H      25
+#define VGA_W      80
 typedef enum {
     VGA_COLOR_BLACK         = 0,
     VGA_COLOR_BLUE          = 1,

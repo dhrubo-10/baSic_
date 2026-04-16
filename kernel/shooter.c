@@ -22,8 +22,6 @@
 #include "../lib/string.h"
 #include "../include/types.h"
 
-#define VGA_W       80
-#define VGA_H       25
 #define FIELD_TOP    1
 #define FIELD_BOT   22
 #define PLAYER_ROW  23
