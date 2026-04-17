@@ -311,12 +311,28 @@ static void cmd_pwd(void)
 static void cmd_cd(const char *path)
 {
     if (!path || !*path) { strncpy(cwd, "/", VFS_PATH_MAX); return; }
-    vfs_node_t *node = vfs_resolve(path);
+
+    char full[VFS_PATH_MAX];
+    if (path[0] == '/') {
+        strncpy(full, path, VFS_PATH_MAX - 1);
+        full[VFS_PATH_MAX - 1] = '\0';
+    } else {
+        strncpy(full, cwd, VFS_PATH_MAX - 1);
+        full[VFS_PATH_MAX - 1] = '\0';
+        usize cwdlen = strlen(full);
+        if (cwdlen < VFS_PATH_MAX - 2 && full[cwdlen - 1] != '/') {
+            full[cwdlen++] = '/';
+            full[cwdlen]   = '\0';
+        }
+        strncpy(full + strlen(full), path, VFS_PATH_MAX - strlen(full) - 1);
+    }
+
+    vfs_node_t *node = vfs_resolve(full);
     if (!node || !(node->flags & VFS_DIR)) {
         shell_puts("cd: no such directory", VGA_COLOR_LIGHT_RED);
         return;
     }
-    strncpy(cwd, path, VFS_PATH_MAX - 1);
+    strncpy(cwd, full, VFS_PATH_MAX - 1);
     cwd[VFS_PATH_MAX - 1] = '\0';
 }
 
