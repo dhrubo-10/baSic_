@@ -13,9 +13,12 @@
 #include "keyboard.h"
 #include "rtc.h"
 #include "serial.h"
+#include "panic.h"
+#include "klog.h"
 #include "syscall.h"
 #include "process.h"
 #include "sched.h"
+#include "env.h"
 #include "shell.h"
 #include "../mm/pmm.h"
 #include "../mm/vmm.h"
@@ -37,6 +40,7 @@ void kmain(void)
     keyboard_init();
     rtc_init();
     serial_init();
+    klog_init();
     pmm_init(MEM_KB);
     vmm_init();
     heap_init();
@@ -49,6 +53,7 @@ void kmain(void)
     syscall_init();
     proc_init();
     sched_init();
+    env_init();
 
     __asm__ volatile ("sti");
     sched_start();

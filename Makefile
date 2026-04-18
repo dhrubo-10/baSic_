@@ -42,11 +42,15 @@ KERNEL_SRCS  := kernel/main.c      \
                 kernel/keyboard.c  \
                 kernel/rtc.c       \
                 kernel/serial.c    \
+                kernel/panic.c     \
+                kernel/klog.c      \
                 kernel/elf.c       \
                 kernel/syscall.c   \
                 kernel/process.c   \
                 kernel/sched.c     \
+                kernel/env.c       \
                 kernel/calc.c      \
+                kernel/pipe.c      \
                 kernel/editor.c    \
                 kernel/shell.c     \
                 kernel/shooter.c
@@ -87,7 +91,7 @@ $(OS_IMG): $(MBR_BIN) $(KERN_BIN)
 	@cat $(MBR_BIN) $(KERN_BIN) > $@
 	@python3 -c "\
 import os; \
-target = 65 * 512; \
+target = 129 * 512; \
 size = os.path.getsize('$@'); \
 open('$@', 'ab').write(b'\\x00' * max(0, target - size))"
 	@echo "[OK]  $@ ready"
