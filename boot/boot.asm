@@ -6,7 +6,7 @@
 [ORG 0x7C00]
 
 KERNEL_LOAD_ADDR  equ 0x8000   ; physical address to load stage2+kernel
-KERNEL_SECTORS    equ 64       ; number of sectors to load (64 * 512 = 32KB)
+KERNEL_SECTORS    equ 128       ; number of sectors to load (64 * 512 = 32KB)
 
 start:
     cli
