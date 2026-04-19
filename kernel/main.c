@@ -19,6 +19,10 @@
 #include "process.h"
 #include "sched.h"
 #include "env.h"
+#include "disk.h"
+#include "fat12.h"
+#include "filemeta.h"
+#include "disksync.h"
 #include "shell.h"
 #include "../mm/pmm.h"
 #include "../mm/vmm.h"
@@ -54,6 +58,11 @@ void kmain(void)
     proc_init();
     sched_init();
     env_init();
+    filemeta_init();
+
+    disk_init();
+    if (fat12_init())
+        disksync_run_init();
 
     __asm__ volatile ("sti");
     sched_start();
