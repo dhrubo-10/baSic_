@@ -51,6 +51,11 @@ KERNEL_SRCS  := kernel/main.c      \
                 kernel/env.c       \
                 kernel/calc.c      \
                 kernel/pipe.c      \
+                kernel/ata.c       \
+                kernel/disk.c      \
+                kernel/fat12.c     \
+                kernel/filemeta.c  \
+                kernel/disksync.c  \
                 kernel/editor.c    \
                 kernel/shell.c     \
                 kernel/shooter.c
@@ -87,73 +92,73 @@ OS_IMG   := $(BUILD_DIR)/baSic_.img
 all: $(OS_IMG)
 
 $(OS_IMG): $(MBR_BIN) $(KERN_BIN)
-	@echo "[IMG] $@"
-	@cat $(MBR_BIN) $(KERN_BIN) > $@
-	@python3 -c "\
+    @echo "[IMG] $@"
+    @cat $(MBR_BIN) $(KERN_BIN) > $@
+    @python3 -c "\
 import os; \
 target = 129 * 512; \
 size = os.path.getsize('$@'); \
 open('$@', 'ab').write(b'\\x00' * max(0, target - size))"
-	@echo "[OK]  $@ ready"
+    @echo "[OK]  $@ ready"
 
 $(MBR_BIN): boot/boot.asm | $(BUILD_DIR)/boot
-	@echo "[AS]  $<"
-	@$(AS) -f bin $< -o $@
+    @echo "[AS]  $<"
+    @$(AS) -f bin $< -o $@
 
 $(KERN_BIN): $(ALL_OBJS) linker.ld
-	@echo "[LD]  $@"
-	@$(LD) $(LDFLAGS) -o $@ \
-		$(BUILD_DIR)/boot/stage2.o \
-		$(filter-out $(BUILD_DIR)/boot/stage2.o, $(ALL_OBJS))
+    @echo "[LD]  $@"
+    @$(LD) $(LDFLAGS) -o $@ \
+        $(BUILD_DIR)/boot/stage2.o \
+        $(filter-out $(BUILD_DIR)/boot/stage2.o, $(ALL_OBJS))
 
 $(BUILD_DIR)/boot/%.o: boot/%.asm | $(BUILD_DIR)/boot
-	@echo "[AS]  $<"
-	@$(AS) $(ASFLAGS) $< -o $@
+    @echo "[AS]  $<"
+    @$(AS) $(ASFLAGS) $< -o $@
 
 $(BUILD_DIR)/kernel/%.o: kernel/%.c | $(BUILD_DIR)/kernel
-	@echo "[CC]  $<"
-	@$(CC) $(CFLAGS) -c $< -o $@
+    @echo "[CC]  $<"
+    @$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/kernel/%.o: kernel/%.asm | $(BUILD_DIR)/kernel
-	@echo "[AS]  $<"
-	@$(AS) $(ASFLAGS) $< -o $@
+    @echo "[AS]  $<"
+    @$(AS) $(ASFLAGS) $< -o $@
 
 $(BUILD_DIR)/mm/%.o: mm/%.c | $(BUILD_DIR)/mm
-	@echo "[CC]  $<"
-	@$(CC) $(CFLAGS) -c $< -o $@
+    @echo "[CC]  $<"
+    @$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/fs/%.o: fs/%.c | $(BUILD_DIR)/fs
-	@echo "[CC]  $<"
-	@$(CC) $(CFLAGS) -c $< -o $@
+    @echo "[CC]  $<"
+    @$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/lib/%.o: lib/%.c | $(BUILD_DIR)/lib
-	@echo "[CC]  $<"
-	@$(CC) $(CFLAGS) -c $< -o $@
+    @echo "[CC]  $<"
+    @$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/boot:
-	@mkdir -p $@
+    @mkdir -p $@
 
 $(BUILD_DIR)/kernel:
-	@mkdir -p $@
+    @mkdir -p $@
 
 $(BUILD_DIR)/mm:
-	@mkdir -p $@
+    @mkdir -p $@
 
 $(BUILD_DIR)/fs:
-	@mkdir -p $@
+    @mkdir -p $@
 
 $(BUILD_DIR)/lib:
-	@mkdir -p $@
+    @mkdir -p $@
 
 .PHONY: run
 run: $(OS_IMG)
-	@./scripts/run.sh $(OS_IMG)
+    @./scripts/run.sh $(OS_IMG)
 
 .PHONY: run-debug
 run-debug: $(OS_IMG)
-	@./scripts/run.sh $(OS_IMG) debug
+    @./scripts/run.sh $(OS_IMG) debug
 
 .PHONY: clean
 clean:
-	@rm -rf $(BUILD_DIR)
-	@echo "[OK]  cleaned"
+    @rm -rf $(BUILD_DIR)
+    @echo "[OK]  cleaned"
