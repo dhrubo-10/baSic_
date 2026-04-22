@@ -48,6 +48,10 @@ KERNEL_SRCS  := kernel/main.c      \
                 kernel/syscall.c   \
                 kernel/process.c   \
                 kernel/sched.c     \
+                kernel/signal.c    \
+                kernel/terminal.c  \
+                kernel/profiler.c  \
+                kernel/watchdog.c  \
                 kernel/env.c       \
                 kernel/calc.c      \
                 kernel/pipe.c      \

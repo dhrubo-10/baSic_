@@ -18,7 +18,11 @@
 #include "syscall.h"
 #include "process.h"
 #include "sched.h"
+#include "signal.h"
 #include "env.h"
+#include "profiler.h"
+#include "watchdog.h"
+#include "terminal.h"
 #include "disk.h"
 #include "fat12.h"
 #include "filemeta.h"
@@ -57,8 +61,12 @@ void kmain(void)
     syscall_init();
     proc_init();
     sched_init();
+    signal_init();
     env_init();
+    prof_init();
+    term_init();
     filemeta_init();
+    watchdog_init(30000);
 
     disk_init();
     if (fat12_init())
