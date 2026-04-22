@@ -1,14 +1,15 @@
 # baSic_ — Technical Documentation
 
-**Version:** v1.0  
-**Author:** Shahriar Dhrubo  
-**License:** GPL v2  
+**Version:** v1.0
+**Author:** Shahriar Dhrubo
+**License:** GPL v2
 **Architecture:** x86 32-bit protected mode
 
 ---
 
 ## Overview
-It boots from bare metal via a custom MBR bootloader, transitions to 32-bit protected mode, and runs a complete kernel with memory management, an interrupt-driven device layer, a virtual filesystem, a process scheduler, a syscall interface, and an interactive shell.
+
+baSic_ is an original operating system written from scratch in C and x86 Assembly. It boots from bare metal via a custom MBR bootloader, transitions to 32-bit protected mode through a hand-built GDT, and runs a kernel with memory management, interrupt-driven devices, a virtual filesystem, process scheduler, syscall interface, and an interactive shell.
 
 ---
 
@@ -20,30 +21,41 @@ baSic_/
 │   ├── boot.asm            stage 1 MBR bootloader
 │   └── stage2.asm          stage 2: GDT + protected mode
 ├── kernel/
-│   ├── main.c              kmain() — kernel entry point
+│   ├── main.c              kernel entry point
 │   ├── vga.c / .h          VGA text-mode driver
 │   ├── idt.c / .h          interrupt descriptor table
 │   ├── isr.c / .h          CPU exception handlers
-│   ├── isr_stubs.asm       ISR assembly stubs (vectors 0-31)
+│   ├── isr_stubs.asm       ISR stubs (vectors 0–31)
 │   ├── irq.c / .h          hardware IRQ dispatch
-│   ├── irq_stubs.asm       IRQ assembly stubs (vectors 32-47)
+│   ├── irq_stubs.asm       IRQ stubs (vectors 32–47)
 │   ├── pic.c / .h          8259 PIC remapping
-│   ├── timer.c / .h        PIT 8253 timer driver
+│   ├── timer.c / .h        PIT 8253 timer
 │   ├── keyboard.c / .h     PS/2 keyboard driver
 │   ├── rtc.c / .h          CMOS real-time clock
-│   ├── serial.c / .h       COM1 serial port driver
+│   ├── serial.c / .h       COM1 serial port
 │   ├── panic.c / .h        kernel panic + ASSERT
 │   ├── klog.c / .h         kernel ring buffer log
-│   ├── elf.c / .h          ELF32 executable loader
+│   ├── tss.c / .h          Task State Segment (reserved, not active)
+│   ├── userspace.c / .h    ring 3 GDT entries (reserved, not active)
+│   ├── elf.c / .h          ELF32 loader
 │   ├── syscall.c / .h      int 0x80 syscall interface
 │   ├── syscall_stub.asm    syscall entry stub
 │   ├── process.c / .h      process table
 │   ├── sched.c / .h        round-robin scheduler
+│   ├── signal.c / .h       signal dispatch
+│   ├── terminal.c / .h     VT100 input decoder
+│   ├── profiler.c / .h     kernel tick counters
+│   ├── watchdog.c / .h     hang detection timer
 │   ├── env.c / .h          environment variables
-│   ├── pipe.c / .h         pipe circular buffer
-│   ├── calc.c / .h         integer expression evaluator
+│   ├── calc.c / .h         expression evaluator
+│   ├── pipe.c / .h         pipe buffer
+│   ├── ata.c / .h          ATA PIO disk driver
+│   ├── disk.c / .h         sector cache
+│   ├── fat12.c / .h        FAT12 filesystem
+│   ├── filemeta.c / .h     file permission table
+│   ├── disksync.c / .h     disk flush + INIT.CFG
 │   ├── editor.c / .h       text editor
-│   ├── shooter.c / .h      VGA text-mode shooter game
+│   ├── shooter.c / .h      VGA shooter game
 │   └── shell.c / .h        interactive shell
 ├── mm/
 │   ├── pmm.c / .h          physical memory manager
@@ -63,9 +75,8 @@ baSic_/
 ├── linker.ld               linker script
 ├── Makefile                build system
 ├── LICENSE                 GPL v2
-├── NOTICE                  copyright notice
 └── docs/
-    └── DOCS.md             this file
+    └── DOCS.md            
 ```
 
 ---
@@ -81,13 +92,15 @@ make run-debug    # QEMU + GDB stub on :1234
 make clean
 ```
 
-GDB debugging:
+For the FAT12 data disk:
 ```bash
-make run-debug
-# in another terminal:
-gdb
-(gdb) target remote :1234
+dd if=/dev/zero of=disk.img bs=512 count=2880
+mkfs.fat -F 12 disk.img
+sudo apt install mtools
+echo "hello" > test.txt && mcopy -i disk.img test.txt ::TEST.TXT
 ```
+
+`run.sh` automatically attaches `disk.img` if it exists.
 
 ---
 
@@ -95,42 +108,46 @@ gdb
 
 ```
 BIOS
- └─ loads boot.asm (MBR) at 0x7C00
-     └─ INT 13h LBA read → loads image at 0x8000
-         └─ stage2.asm
-             ├─ lgdt → 3-entry flat GDT (null, code, data)
-             ├─ set CR0 PE bit → protected mode
-             ├─ far jump to flush pipeline
-             ├─ set segment registers to 0x10
-             ├─ esp = 0x9F000
-             └─ call kmain()
+ └─ MBR at 0x7C00 — INT 13h LBA reads 128 sectors at 0x8000
+     └─ stage2.asm
+         ├─ lgdt → null / code(0x08) / data(0x10)
+         ├─ CR0 PE bit → 32-bit protected mode
+         ├─ far jump to flush pipeline
+         ├─ segment registers → 0x10, esp → 0x9F000
+         └─ call kmain()
 ```
 
-kmain() initialization order:
+`kmain()` init order:
 ```
-vga_init        clear screen, disable hardware cursor
-idt_init        256-gate IDT, exceptions 0-31 wired
-pic_init        remap PIC: IRQ 0-7 → 32-39, IRQ 8-15 → 40-47
-irq_init        IRQ stubs registered at vectors 32-47
-timer_init      PIT at 1000 Hz
-keyboard_init   PS/2 keyboard hooked to IRQ 1
-rtc_init        CMOS RTC ready
-serial_init     COM1 at 115200 baud
-klog_init       ring log cleared
-pmm_init        bitmap PMM initialized
-vmm_init        paging enabled, 8MB identity mapped
-heap_init       free-list heap at 3MB
-vfs_init        VFS layer
-ramfs_init      ramfs mounted at /, default tree created
-fd_init         file descriptor table cleared
-syscall_init    int 0x80 gate registered (DPL=3)
-proc_init       process table cleared
-sched_init      scheduler hooked to timer IRQ
-env_init        default environment variables set
-sti             interrupts enabled
-sched_start     scheduler active
-shell_init      splash → header → prompt
-shell_run       main loop — never returns
+vga_init       clear screen, disable hardware cursor
+idt_init       256-gate IDT, exceptions 0–31
+pic_init       remap PIC: IRQ 0–7 → 32–39, IRQ 8–15 → 40–47
+irq_init       IRQ stubs at vectors 32–47
+timer_init     PIT 1000 Hz
+keyboard_init  PS/2 → IRQ 1
+rtc_init       CMOS RTC
+serial_init    COM1 115200 baud
+klog_init      ring log
+pmm_init       bitmap PMM
+vmm_init       paging, 8MB identity mapped
+heap_init      free-list heap at 3MB
+vfs_init       VFS layer
+ramfs_init     ramfs at /, default tree
+fd_init        16-slot fd table
+syscall_init   int 0x80 (DPL=3)
+proc_init      process table
+sched_init     round-robin scheduler
+signal_init    signal pending table
+env_init       default env vars
+prof_init      profiler counters
+term_init      terminal decoder
+filemeta_init  permission table
+watchdog_init  30s watchdog
+disk_init      ATA + sector cache
+fat12_init     FAT12 (if disk present)
+disksync_run_init  INIT.CFG (if present)
+sti            interrupts on
+shell_init → shell_run
 ```
 
 ---
@@ -139,15 +156,15 @@ shell_run       main loop — never returns
 
 | Address | Contents |
 |---|---|
-| 0x0000 – 0x7BFF | BIOS data, IVT |
-| 0x7C00 – 0x7DFF | Stage 1 MBR |
-| 0x8000 – 0x9EFFF | Stage 2 + kernel image |
+| 0x0000–0x7BFF | BIOS, IVT |
+| 0x7C00–0x7DFF | Stage 1 MBR |
+| 0x8000–0x9EFFF | Stage 2 + kernel |
 | 0x9F000 | Kernel stack top |
 | 0x100000 | PMM bitmap |
-| 0x200000 | Kernel reserved boundary |
-| 0x300000 | Kernel heap (1 MB) |
-| 0x400000+ | PMM-managed free frames |
-| 0xB8000 | VGA text framebuffer |
+| 0x200000 | Kernel reserved |
+| 0x300000 | Kernel heap (1MB) |
+| 0x400000+ | Free frames |
+| 0xB8000 | VGA framebuffer |
 
 ---
 
@@ -155,58 +172,43 @@ shell_run       main loop — never returns
 
 ### VGA Driver
 
-Writes directly to physical address 0xB8000. Each cell is 2 bytes: low byte = ASCII character, high byte = color attribute (bg << 4 | fg). Supports 16 foreground and background colors, automatic scrolling, tab stops, and backspace. Hardware blinking cursor is disabled in vga_init().
-
-The include guard for vga.h is KERNEL_VGA_H rather than VGA_H to avoid a name collision with the VGA_H 25 height constant defined in the same file. Both VGA_W 80 and VGA_H 25 are defined in vga.h and shared across all files that need screen dimensions.
+Direct writes to 0xB8000. Each cell is 2 bytes: ASCII + attribute (bg<<4|fg). Hardware cursor disabled in `vga_init()`. Include guard is `KERNEL_VGA_H` to avoid collision with the `VGA_H 25` constant. `VGA_W 80` and `VGA_H 25` defined in `vga.h`.
 
 ### Interrupt System
 
-IDT layout:
-- Vectors 0–31: CPU exceptions
-- Vectors 32–47: Hardware IRQs (after PIC remap)
-- Vector 0x80: syscall gate
-
-Uniform interrupt stack frame:
-```
-[ESP]   edi esi ebp esp_dummy ebx edx ecx eax   (pusha)
-[+32]   int_no
-[+36]   err_code
-[+40]   eip cs eflags                            (CPU)
-```
-
-Exceptions without a hardware error code push a dummy 0 so every handler receives the same frame shape.
-
-PIC remapping sends ICW1–ICW4 to both master (0x20/0x21) and slave (0xA0/0xA1) PICs. io_wait() uses port 0x80 as a delay between writes.
+IDT: vectors 0–31 = CPU exceptions, 32–47 = hardware IRQs, 0x80 = syscall. Every ISR stub pushes a dummy error code for exceptions that don't have one so the stack frame is always uniform. PIC remapped via ICW1–ICW4 with `io_wait()` between writes.
 
 ### Timer
 
-PIT 8253 channel 0, mode 3 (square wave). Divisor = 1193182 / freq. At 1000 Hz, one tick per millisecond. timer_sleep(ms) halts the CPU between ticks. The scheduler is called directly from timer_irq_handler() rather than registering a separate IRQ 0 handler, ensuring tick_count always increments first.
+PIT 8253 channel 0, mode 3. Divisor = 1193182/freq. At 1000Hz = 1ms per tick. `timer_sleep(ms)` halts between ticks. Scheduler called directly from `timer_irq_handler()` — tick count always increments first.
 
 ### Keyboard
 
-PS/2 scancode set 1. Reads port 0x60 on IRQ 1. Tracks shift_held and ctrl_held via release scancodes (bit 7 set on key release). Ctrl+letter produces control characters (ASCII = letter - 96). Characters are stored in a volatile last_char byte consumed by keyboard_getchar().
+PS/2 scancode set 1. Port 0x60 on IRQ 1. Tracks `shift_held` and `ctrl_held`. Ctrl+letter = ASCII − 96. Single volatile `last_char` consumed by `keyboard_getchar()`.
+
+### Terminal Driver
+
+Wraps keyboard with PS/2 extended scancode (0xE0 prefix) decoding. Maps to `term_key_type_t`: UP, DOWN, LEFT, RIGHT, HOME, END, DEL, PGUP, PGDN. Shell uses `term_poll()` for full arrow key navigation and mid-line cursor movement.
 
 ### RTC
 
-CMOS registers via index port 0x70 and data port 0x71. Waits for the update-in-progress flag (register 0x0A bit 7) before reading. Reads seconds twice to detect a mid-read update. Converts BCD to binary based on status register B bit 2.
+CMOS via ports 0x70/0x71. Waits for update-in-progress flag before reading. Reads seconds twice to catch mid-read updates. Converts BCD→binary based on status register B bit 2. Time displayed in BDT (UTC+6).
 
 ### Physical Memory Manager
 
-Bitmap at physical address 0x100000. One bit per 4 KB frame. Scans 32 bits at a time — full 32-bit words are skipped. Everything below 2 MB is reserved at initialization. pmm_alloc() returns a physical frame address or 0 on out-of-memory.
+Bitmap at 0x100000, one bit per 4KB frame. Scans 32 bits at a time. Everything below 2MB reserved. `pmm_alloc()` returns physical address or 0 on OOM.
 
 ### Virtual Memory Manager
 
-x86 two-level paging. A 4 KB-aligned page directory with 1024 entries, each pointing to a 1024-entry page table. vmm_map(virt, phys, flags) allocates new page tables via pmm_alloc() as needed, writes the PTE, and flushes the TLB with invlpg. Identity maps the first 8 MB so the kernel stays accessible after paging is enabled.
+x86 two-level paging. `vmm_map(virt, phys, flags)` allocates page tables via `pmm_alloc()`, writes PTEs, flushes TLB with `invlpg`. Identity maps 0–8MB at boot.
 
 ### Kernel Heap
 
-Free-list allocator at physical address 3 MB, 1 MB total. Each block header contains a magic value 0xB451C000, the usable size, a free flag, and a next pointer. kmalloc() aligns sizes to 8 bytes and splits blocks when there is room for a new header plus at least 8 bytes. kfree() marks the block free and coalesces adjacent free blocks.
+Free-list at 3MB, 1MB size. Block header: magic `0xB451C000`, size, free flag, next pointer. `kmalloc()` aligns to 8 bytes, splits when there is room. `kfree()` coalesces adjacent free blocks.
 
 ### VFS and ramfs
 
-The VFS is a pure dispatch layer. Every vfs_node_t carries function pointers for read, write, and finddir. All kernel code calls through these pointers rather than calling ramfs functions directly. vfs_resolve("/a/b/c") walks path components by calling finddir at each level.
-
-ramfs stores file data as kmalloc'd 4 KB buffers. Directories hold an array of 32 child node pointers. The inode field in vfs_node_t is reused as a raw pointer to the ramfs internal data structure.
+VFS is a pure dispatch layer — `vfs_read/write/finddir` call through function pointers on each node. `vfs_resolve("/a/b/c")` walks path components with `finddir`. ramfs stores files as 4KB `kmalloc`'d buffers. Directories hold 32 child node pointers. The `inode` field in `vfs_node_t` is repurposed as a pointer to ramfs internal data.
 
 Default tree on boot:
 ```
@@ -218,114 +220,124 @@ Default tree on boot:
 
 ### File Descriptor Table
 
-16 slots. Each entry holds a pointer to a vfs_node_t and a per-fd seek offset. fd_open() finds the first free slot and returns its index. fd_read() and fd_write() advance the offset after each operation.
+16 slots. Each entry: `vfs_node_t*` + per-fd seek offset. `fd_open()` finds free slot. `fd_read/write()` advance offset automatically.
 
 ### Scheduler
 
-Round-robin, 10 ms quantum (10 ticks at 1000 Hz). sched_tick() is called on every timer interrupt. It saves the current process's registers from the interrupt frame, finds the next READY process, and restores that process's registers into the same frame. The iret ending the interrupt resumes the new process. No separate context-switch trampoline is needed.
+Round-robin, 10ms quantum. `sched_tick()` called from timer IRQ. Saves current process registers from interrupt frame, finds next READY process, restores its registers into the frame. `iret` resumes new process.
+
+### Signals
+
+16-slot pending signal bitmask table. `signal_send(pid, signo)` sets a bit. `signal_dispatch(pid)` handles: SIGKILL/SIGTERM → PROC_DEAD, SIGSTOP → PROC_SLEEPING, SIGCONT → PROC_READY. Shell command: `kill <pid> <sig>`.
 
 ### Syscall Interface
 
-int 0x80, gate registered with DPL=3 so user-space code can trigger it without a GPF. eax = syscall number, ebx/ecx/edx = arguments. Return value is written back to eax in the interrupt frame. Implemented: exit (0), write (1), read (2), open (3), close (4), getpid (5).
+`int 0x80`, DPL=3. `eax` = number, `ebx/ecx/edx` = args. Return in `eax`. Implemented: exit(0), write(1), read(2), open(3), close(4), getpid(5), getenv(6), sleep(7), yield(8), kill(9), uptime(10).
 
 ### ELF Loader
 
-Verifies magic bytes \x7FELF, checks e_type == ET_EXEC and e_machine == EM_386. Iterates program headers, processes every PT_LOAD segment by copying p_filesz bytes to p_vaddr, then zero-fills p_memsz - p_filesz bytes for BSS. Returns e_entry.
+Verifies `\x7FELF`, `ET_EXEC`, `EM_386`. Walks program headers, copies `PT_LOAD` segments to `p_vaddr`, zero-fills BSS. Returns `e_entry`.
 
 ### Kernel Panic
 
-PANIC("message") expands to kpanic(__FILE__, __LINE__, msg). Disables interrupts, clears the screen to white-on-red, prints a banner with the message, source file, and line number, sends the same to COM1, then halts. ASSERT(condition) calls PANIC if the condition is false.
+`PANIC("msg")` → `kpanic(__FILE__, __LINE__, msg)`. Clears screen to white-on-red, prints message + file + line, sends to COM1, halts. `ASSERT(cond)` calls PANIC if false.
 
 ### Kernel Log
 
-64-line circular ring buffer. Each entry up to 80 characters. New entries overwrite the oldest when full. klog_dump() prints all stored lines in order for the dmesg command.
+64-line circular buffer, 80 chars per line. `klog_write(line)` appends. `klog_dump()` prints in order — used by `dmesg` command.
+
+### Profiler
+
+Five named tick counters: scheduler, irq, syscall, disk, vfs. `prof_inc(counter)` at hot paths. `prof_dump()` prints all — visible in `top` command.
+
+### Watchdog
+
+Countdown timer, default 30s. `watchdog_kick()` resets on every clock tick in `shell_run()`. `watchdog_fired()` returns 1 on timeout — shown in `top`.
 
 ### Environment Variables
 
-32-entry linear key=value table. Keys up to 32 characters, values up to 64. Default values at boot: OS, VERSION, AUTHOR, ARCH, SHELL.
-
-### Pipe Buffer
-
-512-byte circular byte buffer. pipe_write() and pipe_read() operate independently on write_pos and read_pos. The shell splits command lines on | and initializes the pipe buffer for the pair.
+32-entry key=value table. Keys ≤32 chars, values ≤64 chars. Defaults at boot: OS, VERSION, AUTHOR, ARCH, SHELL. Commands: `env`, `export KEY=val`, `unset KEY`.
 
 ### Expression Evaluator
 
-Recursive descent parser. Grammar:
+Recursive descent. Grammar: `expr = term {(+|-) term}`, `term = factor {(*|/|%) factor}`, `factor = '(' expr ')' | [-] number`. Returns 1 on success, 0 on error or division by zero.
+
+### ATA Driver
+
+PIO mode, primary bus (0x1F0), master drive. Software reset on init, IDENTIFY to detect. 28-bit LBA. `ata_read/write()` transfer 512 bytes as 256 words via `inw/outw`. 400ns delay (4× alt-status reads) between drive-select and command.
+
+### Disk Cache
+
+16-slot sector cache on top of ATA. Cache hit = no disk access. On miss, evicts oldest dirty slot (write-back). `disk_cache_flush()` writes all dirty slots — called before halt/reboot.
+
+### FAT12 Driver
+
+Reads BPB from boot sector. Computes FAT/root/data LBAs. Caches FAT in memory (up to 2 sectors). `fat12_get/set()` unpacks 12-bit FAT entries with cluster+cluster/2 offset. `fat12_list()` walks root directory. `fat12_read()` follows cluster chain. `fat12_write()` allocates clusters, writes data, creates 8.3 directory entry. `fat12_delete()` marks entry 0xE5, frees cluster chain.
+
+### File Metadata
+
+64-entry permission table. `PERM_READ(0x01)`, `PERM_WRITE(0x02)`, `PERM_EXEC(0x04)`. `filemeta_set/get/check()` by path. System paths get restricted defaults at boot.
+
+### Disk Sync
+
+`disksync_run_init()` reads `INIT.CFG` from FAT12 disk at boot. Supported directives: `motd=<text>` sets `/etc/motd`, `env=KEY=VALUE` sets an env var. Lines beginning with `#` are comments. `disksync_flush()` calls `disk_cache_flush()`.
+
+INIT.CFG format:
 ```
-expr   = term   { ('+' | '-') term   }
-term   = factor { ('*' | '/' | '%') factor }
-factor = '(' expr ')' | ['-'] number
+# baSic_ init
+motd=welcome to baSic_
+env=HOSTNAME=baSic
 ```
-Returns 1 on success, 0 on parse error or division by zero.
 
 ### Text Editor
 
-Fixed buffer of 128 lines × 80 characters. Screen layout:
-```
-row 0      title bar  (filename, modified flag, hints)
-rows 1-22  text area  (line number gutter + content)
-row 23     status bar (Ln: Col: Lines:)
-row 24     message bar
-```
-
-Controls:
-
-| Key | Action |
-|---|---|
-| type | insert character |
-| Backspace | delete left / merge lines |
-| Enter | split line at cursor |
-| Ctrl-A | start of line |
-| Ctrl-E | end of line |
-| Ctrl-K | delete current line |
-| Ctrl-S | save to VFS |
-| Ctrl-Q | quit (prompts if unsaved) |
+128 lines × 80 chars. Screen: row 0 = title bar, rows 1–22 = text with line number gutter, row 23 = status bar, row 24 = message bar. Insert at cursor shifts right. Delete merges lines when at column 0. Ctrl-S saves to VFS, Ctrl-Q quits with unsaved prompt.
 
 ### Shooter Game
 
-VGA text-mode space shooter launched by the shoot command. Player (^) moves along the bottom row. Enemies V W M march in formation and drop down at screen edges. SPACE fires bullets upward. Score increases by 10 × level per kill. Q exits and restores the shell.
+`shoot` command. Player `(^)` on row 23, moves with A/D. Enemies V/W/M in 3×8 formation march and drop at screen edges. SPACE fires bullets. Score = 10×level per kill. Speed increases per level. Q exits.
+
+### TSS and Userspace (reserved)
+
+`tss.c` and `userspace.c` exist in the tree but are not compiled or called yet. Activating ring 3 requires extending the GDT in `stage2.asm` to 6 entries before patching slots 3–5 from C. Will be wired in a future day.
 
 ---
 
 ## Shell
 
-The header (rows 0–4) is fixed and never scrolls. Output scrolls between rows 6 and 22. The prompt is pinned to row 23.
-
-The prompt shows the last component of the current working directory. At root it shows baSic_.
-
-Keyboard shortcuts: Ctrl-P = previous history entry, Ctrl-U = clear line.
+Layout: rows 0–22 scroll terminal output, row 23 = prompt, row 24 = status bar.
 
 ### Commands
 
 | Command | Description |
 |---|---|
 | help | list all commands |
-| clear | clear shell output |
+| clear | clear terminal |
 | echo \<text\> | print text |
-| calc \<expr\> | integer expression evaluator |
-| color \<0-7\> | change shell background color |
-| env | print environment variables |
-| export KEY=val | set environment variable |
-| unset KEY | remove environment variable |
-| uptime | time since boot |
-| time | current date/time from RTC |
+| calc \<expr\> | integer arithmetic |
+| env / export / unset | environment variables |
+| uptime / time | time info (BDT) |
 | mem | memory usage |
-| sysinfo | system information |
-| dmesg | kernel ring log |
+| sysinfo | system info |
+| dmesg | kernel log |
+| top | processes + profiler + watchdog |
 | ps | process list |
-| history | command history (last 16) |
-| pwd | print working directory |
-| cd \<dir\> | change directory |
-| ls | list current directory |
-| cat \<path\> | print file contents |
-| write \<file\> \<text\> | write text to file |
-| mkdir \<name\> | create directory |
-| find \<name\> | recursive search |
-| grep \<pattern\> \<path\> | search file for pattern |
-| edit \<file\> | open text editor |
-| shoot | launch shooter game |
+| kill \<pid\> \<sig\> | send signal |
+| spawn \<file\> | load and queue ELF |
+| history | command history |
+| pwd / cd | navigate |
+| ls / cat / mkdir | ramfs |
+| write \<f\> \<text\> | write to ramfs |
+| find / grep | search |
+| diskls | FAT12 root directory |
+| diskcat \<file\> | read from disk |
+| diskwrite \<f\> \<text\> | write to disk |
+| diskdel \<file\> | delete from disk |
+| disksync | flush disk cache |
+| chmod \<path\> \<rwx\> | set permissions |
+| edit \<file\> | text editor |
+| shoot | shooter game |
 | about | about baSic_ |
-| reboot | reboot via 8042 reset |
-| halt | halt system |
+| reboot / halt | power |
 
 ---
