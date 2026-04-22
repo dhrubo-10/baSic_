@@ -3,32 +3,36 @@
  * GPL v2 — see LICENSE
  *
  * syscall dispatch — int 0x80
- * eax = syscall number
- * ebx = arg1, ecx = arg2, edx = arg3
- * return value written back into eax
+ * eax = number, ebx = arg1, ecx = arg2, edx = arg3
  */
 
 #include "syscall.h"
 #include "idt.h"
 #include "vga.h"
+#include "timer.h"
+#include "env.h"
+#include "signal.h"
+#include "process.h"
+#include "profiler.h"
 #include "../fs/fd.h"
 #include "../lib/kprintf.h"
+#include "../lib/string.h"
 
-/* int 0x80 stub defined in syscall_stub.asm */
 extern void syscall_stub(void);
 
 static i32 sys_exit(i32 code)
 {
     kprintf("[proc] exit(%d)\n", code);
-    /* for now just halt — proper process cleanup comes with scheduler */
+    process_t *p = proc_current();
+    if (p) p->state = PROC_DEAD;
     for (;;) __asm__ volatile ("hlt");
     return 0;
 }
 
 static i32 sys_write(i32 fd, const u8 *buf, u32 count)
 {
+    prof_inc(PROF_SYSCALL);
     if (fd == 1 || fd == 2) {
-        /* stdout / stderr — write directly to VGA via kprintf */
         for (u32 i = 0; i < count; i++)
             vga_putchar((char)buf[i]);
         return (i32)count;
@@ -38,12 +42,14 @@ static i32 sys_write(i32 fd, const u8 *buf, u32 count)
 
 static i32 sys_read(i32 fd, u8 *buf, u32 count)
 {
+    prof_inc(PROF_SYSCALL);
     return fd_read(fd, buf, count);
 }
 
 static i32 sys_open(const char *path, i32 flags)
 {
     (void)flags;
+    prof_inc(PROF_VFS);
     extern vfs_node_t *vfs_resolve(const char *path);
     vfs_node_t *node = vfs_resolve(path);
     if (!node) return -1;
@@ -58,31 +64,66 @@ static i32 sys_close(i32 fd)
 
 static i32 sys_getpid(void)
 {
-    return 1;   /* single process for now */
+    process_t *p = proc_current();
+    return p ? (i32)p->pid : 1;
+}
+
+static i32 sys_getenv(const char *key, char *buf, u32 buflen)
+{
+    const char *val = env_get(key);
+    if (!val) return -1;
+    strncpy(buf, val, buflen - 1);
+    buf[buflen - 1] = '\0';
+    return (i32)strlen(val);
+}
+
+static i32 sys_sleep(u32 ms)
+{
+    timer_sleep(ms);
+    return 0;
+}
+
+static i32 sys_yield(void)
+{
+    __asm__ volatile ("int $0x80" : : "a"(0xFF));
+    return 0;
+}
+
+static i32 sys_kill(u32 pid, i32 signo)
+{
+    signal_send(pid, signo);
+    return 0;
+}
+
+static i32 sys_uptime(void)
+{
+    return (i32)(timer_ticks() / 1000);
 }
 
 void syscall_handler(registers_t *regs)
 {
     i32 ret = -1;
-
     switch (regs->eax) {
-    case SYS_EXIT:   ret = sys_exit((i32)regs->ebx);                               break;
-    case SYS_WRITE:  ret = sys_write((i32)regs->ebx, (u8 *)regs->ecx, regs->edx); break;
-    case SYS_READ:   ret = sys_read((i32)regs->ebx, (u8 *)regs->ecx, regs->edx);  break;
-    case SYS_OPEN:   ret = sys_open((const char *)regs->ebx, (i32)regs->ecx);      break;
-    case SYS_CLOSE:  ret = sys_close((i32)regs->ebx);                              break;
-    case SYS_GETPID: ret = sys_getpid();                                            break;
+    case SYS_EXIT:    ret = sys_exit((i32)regs->ebx);                               break;
+    case SYS_WRITE:   ret = sys_write((i32)regs->ebx,(u8*)regs->ecx,regs->edx);    break;
+    case SYS_READ:    ret = sys_read((i32)regs->ebx,(u8*)regs->ecx,regs->edx);     break;
+    case SYS_OPEN:    ret = sys_open((const char*)regs->ebx,(i32)regs->ecx);        break;
+    case SYS_CLOSE:   ret = sys_close((i32)regs->ebx);                              break;
+    case SYS_GETPID:  ret = sys_getpid();                                            break;
+    case SYS_GETENV:  ret = sys_getenv((const char*)regs->ebx,(char*)regs->ecx,regs->edx); break;
+    case SYS_SLEEP:   ret = sys_sleep(regs->ebx);                                   break;
+    case SYS_YIELD:   ret = sys_yield();                                             break;
+    case SYS_KILL:    ret = sys_kill(regs->ebx,(i32)regs->ecx);                     break;
+    case SYS_UPTIME:  ret = sys_uptime();                                            break;
     default:
         kprintf("[WARN] unknown syscall %d\n", regs->eax);
         ret = -1;
     }
-
     regs->eax = (u32)ret;
 }
 
 void syscall_init(void)
 {
-    /* register int 0x80 DPL=3 so user space can trigger it */
     idt_set_gate(0x80, (u32)syscall_stub, 0x08, 0xEE);
     kprintf("[OK] syscall: int 0x80 ready\n");
 }
