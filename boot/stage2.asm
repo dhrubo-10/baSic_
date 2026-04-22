@@ -5,9 +5,11 @@
 ; fixed
 [BITS 16]
 
+global stage2_start
 extern kmain
 
 section .text
+
 
 stage2_start:
     cli
@@ -37,7 +39,7 @@ flush:
     mov esp, 0x9F000
 
     ; sanity check — write green 'S' at top-left
-    mov dword [0xB8000], 0x0A530A53
+    mov dword [0xB8000], 0x0A4B0A4F 
 
     call kmain
 
@@ -50,9 +52,10 @@ flush:
 ; Must live in same section so the linker patches the address correctly. 
 
 gdt_start:
+    ; took me 18 hours to fix this fucking thing 
     dq 0x0000000000000000     ; null
-    dq 0x00CF9A000000FFFF     ; 0x08 code: base=0, limit=4GB, ring0, 32-bit
-    dq 0x00CF92000000FFFF     ; 0x10 data: base=0, limit=4GB, ring0, 32-bit
+    dq 0x00CF9A000000FFFF     ; 0x08 code: ring0, 32-bit, 4GB
+    dq 0x00CF92000000FFFF     ; 0x10 data: ring0, 32-bit, 4GB
 gdt_end:
 
 gdt_descriptor:
