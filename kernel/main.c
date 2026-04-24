@@ -28,6 +28,8 @@
 #include "filemeta.h"
 #include "disksync.h"
 #include "shell.h"
+#include "tss.h"
+#include "userspace.h"
 #include "../mm/pmm.h"
 #include "../mm/vmm.h"
 #include "../mm/heap.h"
@@ -59,6 +61,8 @@ void kmain(void)
     fd_init();
 
     syscall_init();
+    tss_init();
+    userspace_init_gdt();
     proc_init();
     sched_init();
     signal_init();

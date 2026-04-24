@@ -62,7 +62,9 @@ KERNEL_SRCS  := kernel/main.c      \
                 kernel/disksync.c  \
                 kernel/editor.c    \
                 kernel/shell.c     \
-                kernel/shooter.c
+                kernel/shooter.c   \
+                kernel/tss.c       \
+                kernel/userspace.c
 
 KERNEL_ASMS  := kernel/isr_stubs.asm    \
                 kernel/irq_stubs.asm    \

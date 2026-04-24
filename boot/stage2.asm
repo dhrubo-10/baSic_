@@ -53,9 +53,10 @@ flush:
 
 gdt_start:
     ; took me 18 hours to fix this fucking thing 
-    dq 0x0000000000000000     ; null
-    dq 0x00CF9A000000FFFF     ; 0x08 code: ring0, 32-bit, 4GB
-    dq 0x00CF92000000FFFF     ; 0x10 data: ring0, 32-bit, 4GB
+    dq 0              ; 0: null
+    dq 0x00CF9A000000FFFF  ; 1: kernel code  0x08
+    dq 0x00CF92000000FFFF  ; 2: kernel data  0x10
+    times 3 dq 0    
 gdt_end:
 
 gdt_descriptor:
