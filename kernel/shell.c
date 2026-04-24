@@ -128,7 +128,6 @@ static void shell_splash(void)
     /* full-screen centered splash */
     u8 c1 = VGA_COLOR_LIGHT_CYAN;
     u8 c2 = VGA_COLOR_WHITE;
-    u8 c3 = VGA_COLOR_LIGHT_GREY;
     u8 c4 = VGA_COLOR_DARK_GREY;
     u8 bk = VGA_COLOR_BLACK;
 
@@ -139,7 +138,6 @@ static void shell_splash(void)
     str_at(18, 11, " |_.__/ \\__,_|___/_|\\___|", c1, bk);
 
     str_at(34, 13, "v1.0",               c2, bk);
-    str_at(27, 14, "by Shahriar Dhrubo", c3, bk);
 
     /* decorative separator */
     for (int col = 10; col < 70; col++)
@@ -476,7 +474,6 @@ static void cmd_mem(void)
 static void cmd_sysinfo(void)
 {
     shell_puts("baSic_ v1.0", VGA_COLOR_LIGHT_CYAN);        shell_newline();
-    shell_puts("  author  : Shahriar Dhrubo", VGA_COLOR_WHITE); shell_newline();
     shell_puts("  arch    : x86 32-bit protected mode", VGA_COLOR_WHITE); shell_newline();
     shell_puts("  kernel  : baSic_ original", VGA_COLOR_WHITE); shell_newline();
     shell_puts("  license : GPL v2", VGA_COLOR_WHITE); shell_newline();
