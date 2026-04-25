@@ -219,17 +219,36 @@ static void load_file(const char *path)
 
 static void save_file(void)
 {
-    /* find or create the node */
     vfs_node_t *node = vfs_resolve(filename);
     if (!node) {
-        /* try to create in root */
-        vfs_node_t *root = vfs_root();
-        if (!root) {
-            strncpy(msg, "save failed: no root", 79);
+        /* find parent dir and basename */
+        char parent_path[128];
+        strncpy(parent_path, filename, 127);
+        parent_path[127] = '\0';
+
+        /* split at last '/' */
+        char *slash = parent_path;
+        char *last  = slash;
+        while (*slash) { if (*slash == '/') last = slash; slash++; }
+
+        const char *base;
+        vfs_node_t *parent;
+        if (last == parent_path) {
+            /* file directly under root */
+            parent = vfs_root();
+            base   = filename + 1;
+        } else {
+            *last  = '\0';
+            parent = vfs_resolve(parent_path);
+            base   = last + 1;
+        }
+
+        if (!parent) {
+            strncpy(msg, "save failed: no parent dir", 79);
             msg_time = timer_ticks();
             return;
         }
-        node = ramfs_mkfile(root, filename + 1);   /* skip leading '/' */
+        node = ramfs_mkfile(parent, base);
         if (!node) {
             strncpy(msg, "save failed: could not create file", 79);
             msg_time = timer_ticks();
@@ -237,7 +256,8 @@ static void save_file(void)
         }
     }
 
-    /* write lines with newlines */
+    node->length = 0;
+
     u32 off = 0;
     for (int i = 0; i < num_lines; i++) {
         u32 n = vfs_write(node, off, (u32)line_len[i], (u8 *)buf[i]);
