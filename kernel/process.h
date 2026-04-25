@@ -39,8 +39,12 @@ typedef struct {
 } process_t;
 
 void       proc_init(void);
+void       proc_cleanup(process_t *p);
+void       proc_set_current(u32 pid);
 process_t *proc_create(const char *name, u32 entry);
 process_t *proc_current(void);
+process_t *proc_fork(u32 parent_esp);
+process_t *proc_table_get(int i);
 u32        proc_getpid(void);
 
 #endif

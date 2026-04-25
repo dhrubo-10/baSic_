@@ -45,6 +45,52 @@ process_t *proc_create(const char *name, u32 entry)
     return NULL;
 }
 
+void proc_cleanup(process_t *p)
+{
+    if (!p) return;
+    kprintf("[OK] proc: cleanup pid=%d '%s'\n", p->pid, p->name);
+    memset(p, 0, sizeof(process_t));
+    /* state is now PROC_UNUSED (0) */
+}
+
+process_t *proc_fork(u32 parent_esp)
+{
+    process_t *parent = proc_current();
+    if (!parent) return NULL;
+
+    process_t *child = NULL;
+    for (int i = 0; i < PROC_MAX; i++) {
+        if (proc_table[i].state == PROC_UNUSED) {
+            child = &proc_table[i];
+            break;
+        }
+    }
+    if (!child) {
+        kprintf("[ERR] proc: fork failed — table full\n");
+        return NULL;
+    }
+
+    /* copy entire parent struct into child */
+    memcpy(child, parent, sizeof(process_t));
+
+    child->pid   = next_pid++;
+    child->state = PROC_READY;
+
+    /* child has its own stack array — fix up esp relative to parent stack */
+    u32 parent_stack_base = (u32)parent->stack;
+    u32 offset            = parent_esp - parent_stack_base;
+    memcpy(child->stack, parent->stack, PROC_STACK_SIZE);
+    child->stack_top = (u32)(child->stack + PROC_STACK_SIZE);
+    child->ctx.esp   = (u32)(child->stack) + offset;
+
+    /* child returns 0 from fork, parent gets child pid (set in sys_fork) */
+    child->ctx.eax = 0;
+
+    kprintf("[OK] proc: fork pid=%d -> child pid=%d\n",
+            parent->pid, child->pid);
+    return child;
+}
+
 process_t *proc_current(void)
 {
     for (int i = 0; i < PROC_MAX; i++)
