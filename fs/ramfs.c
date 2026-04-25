@@ -28,6 +28,7 @@ static u32 ramfs_read(vfs_node_t *node, u32 offset, u32 size, u8 *buf)
 {
     ramfs_data_t *d = (ramfs_data_t *)node->inode;
     if (!d || !d->buf) return 0;
+    if (offset >= d->capacity) return 0;
     if (offset >= node->length) return 0;
     if (offset + size > node->length)
         size = node->length - offset;
