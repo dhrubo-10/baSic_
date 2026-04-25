@@ -35,12 +35,27 @@ static inline void outb(u16 port, u8 val)
     __asm__ volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
 }
 
+static inline u8 inb(u16 port)
+{
+    u8 val;
+    __asm__ volatile ("inb %1, %0" : "=a"(val) : "Nd"(port));
+    return val;
+}
 
 void vga_init(void)
 {
-    /* disable hardware blinking cursor */
-    outb(0x3D4, 0x0A);
-    outb(0x3D5, 0x20);
+    /* disable blink mode — on real hardware bit 7 of attribute = blink
+     * unless we clear it here. switches to bright background mode. */
+    inb(0x3DA);              /* reset attribute controller flip-flop */
+    outb(0x3C0, 0x10);       /* select mode control register */
+    u8 mode = inb(0x3C1);
+    outb(0x3C0, mode & ~0x08); /* clear bit 3 = disable blink */
+    outb(0x3C0, 0x20);       /* re-enable video output */
+
+    /* move cursor off-screen */
+    outb(0x3D4, 0x0F); outb(0x3D5, 0xFF);
+    outb(0x3D4, 0x0E); outb(0x3D5, 0xFF);
+
     cur_attr = make_attr(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
     vga_clear();
 }
