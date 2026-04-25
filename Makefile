@@ -102,7 +102,7 @@ $(OS_IMG): $(MBR_BIN) $(KERN_BIN)
 	@cat $(MBR_BIN) $(KERN_BIN) > $@
 	@python3 -c "\
 import os; \
-target = 129 * 512; \
+target = 256 * 512; \
 size = os.path.getsize('$@'); \
 open('$@', 'ab').write(b'\\x00' * max(0, target - size))"
 	@echo "[OK]  $@ ready"

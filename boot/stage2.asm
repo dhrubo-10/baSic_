@@ -20,6 +20,7 @@ stage2_start:
     mov gs, ax
     mov ss, ax
 
+    call enable_a20_kbc
     lgdt [gdt_descriptor]
 
     mov eax, cr0
@@ -27,6 +28,39 @@ stage2_start:
     mov cr0, eax
 
     jmp 0x08:flush
+
+enable_a20_kbc:
+    call    .wait_input
+    mov     al, 0xAD        ; disable keyboard
+    out     0x64, al
+    call    .wait_input
+    mov     al, 0xD0        ; read output port
+    out     0x64, al
+    call    .wait_output
+    in      al, 0x60
+    push    ax
+    call    .wait_input
+    mov     al, 0xD1        ; write output port
+    out     0x64, al
+    call    .wait_input
+    pop     ax
+    or      al, 2           ; set A20 bit
+    out     0x60, al
+    call    .wait_input
+    mov     al, 0xAE        ; enable keyboard
+    out     0x64, al
+    call    .wait_input
+    ret
+.wait_input:
+    in      al, 0x64
+    test    al, 2
+    jnz     .wait_input
+    ret
+.wait_output:
+    in      al, 0x64
+    test    al, 1
+    jz      .wait_output
+    ret
 
 [BITS 32]
 flush:

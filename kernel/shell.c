@@ -83,42 +83,42 @@ static void draw_status(void)
     str_at(15, STATUS_ROW, cwd, VGA_COLOR_WHITE, VGA_COLOR_DARK_GREY);
 
     /* right: time (BD UTC+6) + uptime */
-    rtc_time_t t;
-    rtc_read(&t);
+    // rtc_time_t t;
+    // rtc_read(&t);
 
-    /* apply BD UTC+6 offset */
-    int hour = (int)t.hour + TZ_OFFSET_H;
-    if (hour >= 24) hour -= 24;
+    // /* apply BD UTC+6 offset */
+    // int hour = (int)t.hour + TZ_OFFSET_H;
+    // if (hour >= 24) hour -= 24;
 
-    char tbuf[32];
-    int i = 0;
-    tbuf[i++] = '0' + hour / 10;
-    tbuf[i++] = '0' + hour % 10;
-    tbuf[i++] = ':';
-    tbuf[i++] = '0' + t.minute / 10;
-    tbuf[i++] = '0' + t.minute % 10;
-    tbuf[i++] = ':';
-    tbuf[i++] = '0' + t.second / 10;
-    tbuf[i++] = '0' + t.second % 10;
-    tbuf[i++] = ' ';
-    tbuf[i++] = 'B'; tbuf[i++] = 'D';
-    tbuf[i] = '\0';
+    // char tbuf[32];
+    // int i = 0;
+    // tbuf[i++] = '0' + hour / 10;
+    // tbuf[i++] = '0' + hour % 10;
+    // tbuf[i++] = ':';
+    // tbuf[i++] = '0' + t.minute / 10;
+    // tbuf[i++] = '0' + t.minute % 10;
+    // tbuf[i++] = ':';
+    // tbuf[i++] = '0' + t.second / 10;
+    // tbuf[i++] = '0' + t.second % 10;
+    // tbuf[i++] = ' ';
+    // tbuf[i++] = 'B'; tbuf[i++] = 'D';
+    // tbuf[i] = '\0';
 
-    str_at(55, STATUS_ROW, tbuf, VGA_COLOR_LIGHT_CYAN, VGA_COLOR_DARK_GREY);
+    // str_at(55, STATUS_ROW, tbuf, VGA_COLOR_LIGHT_CYAN, VGA_COLOR_DARK_GREY);
 
-    /* uptime */
-    u32 s = timer_ticks() / 1000;
-    u8  uh = (u8)(s / 3600);
-    u8  um = (u8)((s % 3600) / 60);
-    u8  us = (u8)(s % 60);
-    char ubuf[16];
-    int j = 0;
-    ubuf[j++] = '|'; ubuf[j++] = ' ';
-    ubuf[j++] = '0' + uh / 10; ubuf[j++] = '0' + uh % 10; ubuf[j++] = ':';
-    ubuf[j++] = '0' + um / 10; ubuf[j++] = '0' + um % 10; ubuf[j++] = ':';
-    ubuf[j++] = '0' + us / 10; ubuf[j++] = '0' + us % 10;
-    ubuf[j] = '\0';
-    str_at(68, STATUS_ROW, ubuf, VGA_COLOR_YELLOW, VGA_COLOR_DARK_GREY);
+    // /* uptime */
+    // u32 s = timer_ticks() / 1000;
+    // u8  uh = (u8)(s / 3600);
+    // u8  um = (u8)((s % 3600) / 60);
+    // u8  us = (u8)(s % 60);
+    // char ubuf[16];
+    // int j = 0;
+    // ubuf[j++] = '|'; ubuf[j++] = ' ';
+    // ubuf[j++] = '0' + uh / 10; ubuf[j++] = '0' + uh % 10; ubuf[j++] = ':';
+    // ubuf[j++] = '0' + um / 10; ubuf[j++] = '0' + um % 10; ubuf[j++] = ':';
+    // ubuf[j++] = '0' + us / 10; ubuf[j++] = '0' + us % 10;
+    // ubuf[j] = '\0';
+    // str_at(68, STATUS_ROW, ubuf, VGA_COLOR_YELLOW, VGA_COLOR_DARK_GREY);
 }
 
 static void shell_splash(void)
@@ -783,6 +783,8 @@ static void dispatch(void)
 {
     cmd_buf[cmd_len]='\0';
     if (!cmd_len) return;
+    draw_status();   
+    watchdog_kick();
 
     if (!strcmp(cmd_buf,"help"))     { cmd_help();    return; }
     if (!strcmp(cmd_buf,"clear"))    { cmd_clear();   return; }
@@ -885,17 +887,48 @@ void shell_init(void)
     prompt_redraw();
 }
 
+// static void draw_status_time(void)
+// {
+//     static u8 last_sec = 0xFF;
+
+//     rtc_time_t t;
+//     rtc_read(&t);
+
+//     if (t.second == last_sec)
+//         return;
+//     last_sec = t.second;
+//     wait_vretrace();
+
+//     int hour = (int)t.hour + TZ_OFFSET_H;
+//     if (hour >= 24) hour -= 24;
+
+//     char tbuf[32]; int i = 0;
+//     tbuf[i++] = '0' + hour/10;     tbuf[i++] = '0' + hour%10;     tbuf[i++] = ':';
+//     tbuf[i++] = '0' + t.minute/10; tbuf[i++] = '0' + t.minute%10; tbuf[i++] = ':';
+//     tbuf[i++] = '0' + t.second/10; tbuf[i++] = '0' + t.second%10;
+//     tbuf[i++] = ' '; tbuf[i++] = 'B'; tbuf[i++] = 'D'; tbuf[i] = '\0';
+//     str_at(55, STATUS_ROW, tbuf, VGA_COLOR_LIGHT_CYAN, VGA_COLOR_DARK_GREY);
+
+//     u32 s = timer_ticks() / 1000;
+//     u8 uh=(u8)(s/3600), um=(u8)((s%3600)/60), us=(u8)(s%60);
+//     char ubuf[16]; int j = 0;
+//     ubuf[j++]='|'; ubuf[j++]=' ';
+//     ubuf[j++]='0'+uh/10; ubuf[j++]='0'+uh%10; ubuf[j++]=':';
+//     ubuf[j++]='0'+um/10; ubuf[j++]='0'+um%10; ubuf[j++]=':';
+//     ubuf[j++]='0'+us/10; ubuf[j++]='0'+us%10; ubuf[j]='\0';
+//     str_at(68, STATUS_ROW, ubuf, VGA_COLOR_YELLOW, VGA_COLOR_DARK_GREY);
+// }
+
 void shell_run(void)
 {
     u32 last_s = (u32)-1;
 
     for (;;) {
-        u32 now_s = timer_ticks() / 1000;
-        if (now_s != last_s) {
-            draw_status();
-            last_s = now_s;
-            watchdog_kick();
-        }
+        // u32 now_s = timer_ticks() / 1000;
+        // if (now_s != last_s) {
+        //    last_s = now_s;
+        //    watchdog_kick();
+        // }
 
         term_event_t ev = term_poll();
         if (ev.type == TERM_NONE) {

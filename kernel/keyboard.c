@@ -60,6 +60,10 @@ static void keyboard_irq_handler(registers_t *regs)
     (void)regs;
     u8 sc = inb(KBD_DATA_PORT);
 
+    /* avoid on reald hardware */
+    if (sc == 0x00 || sc == 0xFF)
+        return;
+
     if (sc & 0x80) {
         u8 released = sc & 0x7F;
         if (released == 0x2A || released == 0x36)
@@ -90,6 +94,9 @@ void keyboard_init(void)
     last_char  = 0;
     shift_held = 0;
     ctrl_held  = 0;
+    /* flush BIOS leftover bytes */
+     while (inb(0x64) & 0x01)
+        inb(0x60);
     irq_register(1, keyboard_irq_handler);
 }
 

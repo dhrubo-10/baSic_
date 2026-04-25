@@ -6,7 +6,6 @@
 [ORG 0x7C00]
 
 KERNEL_LOAD_ADDR  equ 0x8000   ; physical address to load stage2+kernel
-KERNEL_SECTORS    equ 128       ; number of sectors to load (64 * 512 = 32KB)
 
 start:
     cli
@@ -33,28 +32,40 @@ start:
 ; load_kernel: loads KERNEL_SECTORS sectors starting at sector 2 into
 ;              ES:BX = 0x0000:0x8000 using INT 13h CHS read
 load_kernel:
-    mov si, dap
+    mov si, dap1
+    mov ah, 0x42
+    mov dl, [boot_drive]
+    int 0x13
+    jc disk_error
+
+    mov si, dap2
     mov ah, 0x42
     mov dl, [boot_drive]
     int 0x13
     jc disk_error
     ret
 
+dap1:
+    db 0x10
+    db 0x00
+    dw 64                   ; first 64 sectors
+    dw KERNEL_LOAD_ADDR
+    dw 0x0000
+    dq 1                    ; LBA 1
+
+dap2:
+    db 0x10
+    db 0x00
+    dw 64
+    dw 0x0000       ; offset
+    dw 0x1000       ; segment → physical 0x10000
+    dq 65   
+
 disk_error:
     mov si, msg_disk_err
     call bios_print
     cli
     hlt
-
-; Disk Address Packet for LBA read
-dap:
-    db 0x10             ; DAP size (16 bytes)
-    db 0x00             ; reserved
-    dw KERNEL_SECTORS   ; sectors to read
-    dw KERNEL_LOAD_ADDR ; target offset
-    dw 0x0000           ; target segment
-    dq 1                ; LBA start = sector 1 (0-indexed, so sector 2 in 1-based)
-
 
 bios_print:
     lodsb
