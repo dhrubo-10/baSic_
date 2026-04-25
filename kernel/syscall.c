@@ -24,9 +24,20 @@ static i32 sys_exit(i32 code)
 {
     kprintf("[proc] exit(%d)\n", code);
     process_t *p = proc_current();
-    if (p) p->state = PROC_DEAD;
-    for (;;) __asm__ volatile ("hlt");
+    if (p) {
+        p->state = PROC_DEAD;
+        proc_cleanup(p);
+    }
+    /* return to shell / idle — for now yield back */
+    proc_set_current(1);
     return 0;
+}
+
+static i32 sys_fork(u32 caller_esp)
+{
+    process_t *child = proc_fork(caller_esp);
+    if (!child) return -1;
+    return (i32)child->pid;   /* parent gets child pid */
 }
 
 static i32 sys_write(i32 fd, const u8 *buf, u32 count)
@@ -104,17 +115,18 @@ void syscall_handler(registers_t *regs)
 {
     i32 ret = -1;
     switch (regs->eax) {
-    case SYS_EXIT:    ret = sys_exit((i32)regs->ebx);                               break;
-    case SYS_WRITE:   ret = sys_write((i32)regs->ebx,(u8*)regs->ecx,regs->edx);    break;
-    case SYS_READ:    ret = sys_read((i32)regs->ebx,(u8*)regs->ecx,regs->edx);     break;
-    case SYS_OPEN:    ret = sys_open((const char*)regs->ebx,(i32)regs->ecx);        break;
-    case SYS_CLOSE:   ret = sys_close((i32)regs->ebx);                              break;
-    case SYS_GETPID:  ret = sys_getpid();                                            break;
-    case SYS_GETENV:  ret = sys_getenv((const char*)regs->ebx,(char*)regs->ecx,regs->edx); break;
-    case SYS_SLEEP:   ret = sys_sleep(regs->ebx);                                   break;
-    case SYS_YIELD:   ret = sys_yield();                                             break;
-    case SYS_KILL:    ret = sys_kill(regs->ebx,(i32)regs->ecx);                     break;
-    case SYS_UPTIME:  ret = sys_uptime();                                            break;
+    case SYS_EXIT:    ret = sys_exit((i32)regs->ebx);                                       break;
+    case SYS_WRITE:   ret = sys_write((i32)regs->ebx,(u8*)regs->ecx,regs->edx);             break;
+    case SYS_READ:    ret = sys_read((i32)regs->ebx,(u8*)regs->ecx,regs->edx);              break;
+    case SYS_OPEN:    ret = sys_open((const char*)regs->ebx,(i32)regs->ecx);                break;
+    case SYS_CLOSE:   ret = sys_close((i32)regs->ebx);                                      break;
+    case SYS_GETPID:  ret = sys_getpid();                                                   break;
+    case SYS_GETENV:  ret = sys_getenv((const char*)regs->ebx,(char*)regs->ecx,regs->edx);  break;
+    case SYS_SLEEP:   ret = sys_sleep(regs->ebx);                                           break;
+    case SYS_YIELD:   ret = sys_yield();                                                    break;
+    case SYS_KILL:    ret = sys_kill(regs->ebx,(i32)regs->ecx);                             break;
+    case SYS_UPTIME:  ret = sys_uptime();                                                   break;
+    case SYS_FORK:    ret = sys_fork(regs->esp);                                            break;
     default:
         kprintf("[WARN] unknown syscall %d\n", regs->eax);
         ret = -1;

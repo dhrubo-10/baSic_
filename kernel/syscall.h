@@ -22,6 +22,7 @@
 #define SYS_YIELD    8
 #define SYS_KILL     9
 #define SYS_UPTIME   10
+#define SYS_FORK     11	/* just copy everything, fix it later */
 
 void syscall_init(void);
 void syscall_handler(registers_t *regs);
