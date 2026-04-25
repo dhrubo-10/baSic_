@@ -144,6 +144,8 @@ term_init      terminal decoder
 filemeta_init  permission table
 watchdog_init  30s watchdog
 disk_init      ATA + sector cache
+tss_init       TSS descriptor at GDT slot 3, ltr 0x18
+userspace_init_gdt  ring 3 code/data at GDT slots 4/5
 fat12_init     FAT12 (if disk present)
 disksync_run_init  INIT.CFG (if present)
 sti            interrupts on
@@ -165,6 +167,8 @@ shell_init → shell_run
 | 0x300000 | Kernel heap (1MB) |
 | 0x400000+ | Free frames |
 | 0xB8000 | VGA framebuffer |
+| 0x500000 | User program area |
+| 0x600000 | User stack    |
 
 ---
 
@@ -173,6 +177,8 @@ shell_init → shell_run
 ### VGA Driver
 
 Direct writes to 0xB8000. Each cell is 2 bytes: ASCII + attribute (bg<<4|fg). Hardware cursor disabled in `vga_init()`. Include guard is `KERNEL_VGA_H` to avoid collision with the `VGA_H 25` constant. `VGA_W 80` and `VGA_H 25` defined in `vga.h`.
+VGA attribute controller blink bit (bit 3 of register 0x10) cleared at init — on real hardware bg color ≥ 8 sets the hardware blink bit causing 
+visible flicker. Cleared once in vga_init() to enable bright backgrounds.
 
 ### Interrupt System
 
@@ -297,9 +303,15 @@ env=HOSTNAME=baSic
 
 `shoot` command. Player `(^)` on row 23, moves with A/D. Enemies V/W/M in 3×8 formation march and drop at screen edges. SPACE fires bullets. Score = 10×level per kill. Speed increases per level. Q exits.
 
-### TSS and Userspace (reserved)
+### TSS and Userspace
 
-`tss.c` and `userspace.c` exist in the tree but are not compiled or called yet. Activating ring 3 requires extending the GDT in `stage2.asm` to 6 entries before patching slots 3–5 from C. Will be wired in a future day.
+TSS descriptor installed at GDT slot 3 (selector 0x18) by `tss_init()`. Ring 3 code (0x23) and data (0x2B) segments installed at slots 4 and 5 by 
+`userspace_init_gdt()`. Both called from `kmain()` after `idt_init()`. `userspace_enter(entry, user_stack)` drops the CPU to ring 3 via `iret`,
+pushing ss/esp/eflags/cs/eip onto the kernel stack with IF set. On any interrupt or syscall from ring 3, the CPU uses the TSS esp0/ss0 fields to
+switch back to the kernel stack at 0x9F000.
+
+`sys_exit()` handles ring 3 process termination — marks the process DEAD, resets esp/ebp to 0x9F000, and restarts the shell cleanly. `ring3test` shell command 
+copies a minimal x86 program blob to 0x500000 and enters ring 3. The program calls sys_write then sys_exit via int 0x80.
 
 ---
 
@@ -338,6 +350,7 @@ Layout: rows 0–22 scroll terminal output, row 23 = prompt, row 24 = status bar
 | edit \<file\> | text editor |
 | shoot | shooter game |
 | about | about baSic_ |
+| ring3test | run first ring 3 user process |
 | reboot / halt | power |
 
 ---
