@@ -24,10 +24,11 @@ The project explores kernel development, low-level device interaction, memory ma
 - ELF32 executable loader
 - Process table with saved CPU context
 - Round-robin scheduler (10 ms quantum, timer-driven)
-- int 0x80 syscall interface (exit, write, read, open, close, getpid)
+- int 0x80 syscall interface (exit, write, read, open, close, getpid, fork, wait, exec)
+- fork/wait/exit process lifecycle with ZOMBIE state and exit code collection
 **Shell**
 - Interactive shell with fixed header, scrolling output area, dynamic prompt
-- Command history (16 deep), Ctrl-P / Ctrl-U shortcuts
+- Command history (32 deep), Ctrl-U to clear line
 - Environment variables (env / export / unset)
 - Kernel ring log (dmesg)
 - Pipe detection in command lines
@@ -99,6 +100,8 @@ find <name>       recursive search
 grep <p> <path>   search file
 edit <file>       text editor
 shoot             shooter game
+kill <pid> <sig>  send signal
+spawn <file>      load and queue ELF
 reboot / halt     power control
 ```
  
