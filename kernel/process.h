@@ -50,5 +50,6 @@ process_t *proc_fork(u32 parent_esp);
 process_t *proc_table_get(int i);
 u32        proc_getpid(void);
 i32 proc_wait(u32 child_pid, i32 *exit_code_out);
+u32 proc_getppid(void);
 
 #endif
