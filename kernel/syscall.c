@@ -20,6 +20,26 @@
 
 extern void syscall_stub(void);
 
+/* heap regipn  0x700000 */
+#define USR_HEAP_BASE  0x700000
+#define USR_HEAP_MAX   0x800000
+
+static u32 usr_brk = USR_HEAP_BASE;
+
+static i32 sys_sbrk(i32 increment)
+{
+    u32 old_brk = usr_brk;
+    if (increment == 0) return (i32)old_brk;
+
+    u32 new_brk = usr_brk + (u32)increment;
+    if (new_brk > USR_HEAP_MAX) {
+        kprintf("[WARN] sbrk: out of user heap\n");
+        return -1;
+    }
+    usr_brk = new_brk;
+    return (i32)old_brk;
+}
+
 static i32 sys_exit(i32 code)
 {
     kprintf("[proc] exit(%d)\n", code);
@@ -27,6 +47,8 @@ static i32 sys_exit(i32 code)
     if (p) {
         p->exit_code = code;
         p->state     = PROC_ZOMBIE;  /* parent needs to wait() first */
+        if (p->parent_pid)
+            signal_send(p->parent_pid, SIGCHLD);
     }
     proc_set_current(1);
     return 0;
@@ -112,9 +134,14 @@ static i32 sys_uptime(void)
     return (i32)(timer_ticks() / 1000);
 }
 
-static i32 sys_wait(u32 child_pid, i32 *exit_code_out)
+static i32 sys_wait(i32 child_pid, i32 *exit_code_out)
 {
     return proc_wait(child_pid, exit_code_out);
+}
+
+static i32 sys_getppid(void)
+{
+    return (i32)proc_getppid();
 }
 
 static i32 sys_exec(const char *path)
@@ -157,8 +184,10 @@ void syscall_handler(registers_t *regs)
     case SYS_KILL:    ret = sys_kill(regs->ebx,(i32)regs->ecx);                             break;
     case SYS_UPTIME:  ret = sys_uptime();                                                   break;
     case SYS_FORK:    ret = sys_fork();                                                     break;
-    case SYS_WAIT:    ret = sys_wait(regs->ebx, (i32 *)regs->ecx);                          break;
+    case SYS_WAIT:    ret = sys_wait((i32)regs->ebx, (i32 *)regs->ecx);                     break;
     case SYS_EXEC:    ret = sys_exec((const char *)regs->ebx);                              break;
+    case SYS_GETPPID: ret = sys_getppid();                                                  break;
+    case SYS_SBRK:    ret = sys_sbrk((i32)regs->ebx);                                       break;
     default:
         kprintf("[WARN] unknown syscall %d\n", regs->eax);
         ret = -1;

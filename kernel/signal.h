@@ -16,7 +16,8 @@
 #define SIGCONT   4
 #define SIGSEGV   5
 #define SIGFPE    6
-#define SIG_MAX   8
+#define SIG_MAX   7
+#define SIGCHLD   8
 
 typedef void (*sighandler_t)(int signo);
 

@@ -25,6 +25,8 @@
 #define SYS_FORK     11	/* just copy everything, fix it later */
 #define SYS_WAIT     12
 #define SYS_EXEC     13
+#define SYS_GETPPID  14
+#define SYS_SBRK  	 15
 
 void syscall_init(void);
 void syscall_handler(registers_t *regs);
