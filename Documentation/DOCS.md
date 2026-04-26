@@ -228,6 +228,15 @@ Default tree on boot:
 
 16 slots. Each entry: `vfs_node_t*` + per-fd seek offset. `fd_open()` finds free slot. `fd_read/write()` advance offset automatically.
 
+### Process
+
+16-slot process table. Each slot holds pid, state, saved cpu context, and a 4KB kernel stack. `proc_create()` finds a free slot, assigns a pid, and sets esp to the top of the stack buffer. `proc_fork()` copies the parent slot into a free child slot, duplicates the kernel stack, fixes up esp to point into the child's own stack buffer, and sets eax=0 in 
+the child context so fork returns 0 to the child and the child pid to the parent. `proc_cleanup()` zeroes the slot and resets state to PROC_UNUSED so the slot is reclaimable. 
+`sys_exit` calls proc_cleanup before returning no more halting forever on exit.
+PROC_ZOMBIE added — process stores exit code and waits for parent to call wait() before slot is reclaimed. proc_wait() spins with sti/hlt yielding to the scheduler until the target child goes zombie, reads the exit code, then calls proc_cleanup(). parent_pid tracked on each process so wait() can verify parentage in future. sys_exit now sets PROC_ZOMBIE and 
+stores the exit code instead of halting forever. sys_exec resolves an ELF from VFS, loads it to 0x400000, and queues a new READY process — userspace can spawn processes 
+without going through the shell.
+
 ### Scheduler
 
 Round-robin, 10ms quantum. `sched_tick()` called from timer IRQ. Saves current process registers from interrupt frame, finds next READY process, restores its registers into the frame. `iret` resumes new process.
@@ -238,7 +247,7 @@ Round-robin, 10ms quantum. `sched_tick()` called from timer IRQ. Saves current p
 
 ### Syscall Interface
 
-`int 0x80`, DPL=3. `eax` = number, `ebx/ecx/edx` = args. Return in `eax`. Implemented: exit(0), write(1), read(2), open(3), close(4), getpid(5), getenv(6), sleep(7), yield(8), kill(9), uptime(10).
+`int 0x80`, DPL=3. `eax` = number, `ebx/ecx/edx` = args. Return in `eax`. Implemented: exit(0), write(1), read(2), open(3), close(4), getpid(5), getenv(6), sleep(7), yield(8), kill(9), uptime(10), fork(11), wait(12), exec(13).
 
 ### ELF Loader
 
