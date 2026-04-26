@@ -74,6 +74,7 @@ process_t *proc_fork(u32 parent_esp)
     memcpy(child, parent, sizeof(process_t));
 
     child->pid   = next_pid++;
+    child->parent_pid = parent->pid;
     child->state = PROC_READY;
 
     /* child has its own stack array — fix up esp relative to parent stack */
@@ -89,6 +90,24 @@ process_t *proc_fork(u32 parent_esp)
     kprintf("[OK] proc: fork pid=%d -> child pid=%d\n",
             parent->pid, child->pid);
     return child;
+}
+
+i32 proc_wait(u32 child_pid, i32 *exit_code_out)
+{
+    /* spin until child goes zombie — scheduler runs in between */
+    for (;;) {
+        for (int i = 0; i < PROC_MAX; i++) {
+            process_t *p = proc_table_get(i);
+            if (!p) continue;
+            if (p->pid == child_pid && p->state == PROC_ZOMBIE) {
+                if (exit_code_out) *exit_code_out = p->exit_code;
+                proc_cleanup(p);
+                return 0;
+            }
+        }
+        /* let the scheduler run so the child actually gets cpu time */
+        __asm__ volatile ("sti; hlt");
+    }
 }
 
 process_t *proc_current(void)

@@ -19,6 +19,7 @@ typedef enum {
     PROC_RUNNING,
     PROC_SLEEPING,
     PROC_DEAD,
+    PROC_ZOMBIE,   
 } proc_state_t;
 
 /* saved CPU register state for context switch */
@@ -31,9 +32,11 @@ typedef struct {
 
 typedef struct {
     u32           pid;
+    u32           parent_pid;   /* who forked me */
+    i32           exit_code;    /* stored for wait() to read */
     proc_state_t  state;
     cpu_context_t ctx;
-    u32           stack_top;    /* top of kernel stack */
+    u32           stack_top;
     u8            stack[PROC_STACK_SIZE];
     char          name[32];
 } process_t;
@@ -46,5 +49,6 @@ process_t *proc_current(void);
 process_t *proc_fork(u32 parent_esp);
 process_t *proc_table_get(int i);
 u32        proc_getpid(void);
+i32 proc_wait(u32 child_pid, i32 *exit_code_out);
 
 #endif
