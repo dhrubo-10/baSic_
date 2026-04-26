@@ -169,6 +169,7 @@ shell_init → shell_run
 | 0xB8000 | VGA framebuffer |
 | 0x500000 | User program area |
 | 0x600000 | User stack    |
+| 0x700000 | User heap (sbrk) |
 
 ---
 
@@ -235,7 +236,8 @@ the child context so fork returns 0 to the child and the child pid to the parent
 `sys_exit` calls proc_cleanup before returning no more halting forever on exit.
 PROC_ZOMBIE added — process stores exit code and waits for parent to call wait() before slot is reclaimed. proc_wait() spins with sti/hlt yielding to the scheduler until the target child goes zombie, reads the exit code, then calls proc_cleanup(). parent_pid tracked on each process so wait() can verify parentage in future. sys_exit now sets PROC_ZOMBIE and 
 stores the exit code instead of halting forever. sys_exec resolves an ELF from VFS, loads it to 0x400000, and queues a new READY process — userspace can spawn processes 
-without going through the shell.
+without going through the shell. proc_wait() now accepts -1 as child_pid to reap any child belonging to the current process — returns the pid of the reaped child. proc_getppid() returns parent_pid of the 
+current process. sys_exit now sends SIGCHLD to the parent before going zombie so the parent can be notified without polling.
 
 ### Scheduler
 
@@ -247,7 +249,7 @@ Round-robin, 10ms quantum. `sched_tick()` called from timer IRQ. Saves current p
 
 ### Syscall Interface
 
-`int 0x80`, DPL=3. `eax` = number, `ebx/ecx/edx` = args. Return in `eax`. Implemented: exit(0), write(1), read(2), open(3), close(4), getpid(5), getenv(6), sleep(7), yield(8), kill(9), uptime(10), fork(11), wait(12), exec(13).
+`int 0x80`, DPL=3. `eax` = number, `ebx/ecx/edx` = args. Return in `eax`. Implemented: exit(0), write(1), read(2), open(3), close(4), getpid(5), getenv(6), sleep(7), yield(8), kill(9), uptime(10), fork(11), wait(12), exec(13), getppid(14), sbrk(15): grows userspace heap from base 0x700000 up to 0x800000.
 
 ### ELF Loader
 
@@ -361,5 +363,6 @@ Layout: rows 0–22 scroll terminal output, row 23 = prompt, row 24 = status bar
 | about | about baSic_ |
 | ring3test | run first ring 3 user process |
 | reboot / halt | power |
+| poweroff | ACPI shutdown |
 
 ---
