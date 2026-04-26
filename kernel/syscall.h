@@ -23,6 +23,8 @@
 #define SYS_KILL     9
 #define SYS_UPTIME   10
 #define SYS_FORK     11	/* just copy everything, fix it later */
+#define SYS_WAIT     12
+#define SYS_EXEC     13
 
 void syscall_init(void);
 void syscall_handler(registers_t *regs);
