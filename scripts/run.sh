@@ -15,8 +15,6 @@ fi
 QEMU_ARGS=(
     -drive "format=raw,file=$IMAGE,index=0,media=disk" # boot from raw disk image
     -m 32M                                               # 32 MB RAM (like early Linux)
-    -no-reboot                                          # stop instead of rebooting on triple fault
-    -no-shutdown
 )
 
 if [ "$MODE" = "debug" ]; then

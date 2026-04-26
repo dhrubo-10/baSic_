@@ -357,7 +357,7 @@ static void cmd_help(void)
     shell_puts("  files    : cat write mkdir find grep edit", VGA_COLOR_LIGHT_GREY);
     shell_puts("  disk     : diskls diskcat diskwrite diskdel disksync chmod", VGA_COLOR_LIGHT_GREY);
     shell_puts("  fun      : shoot", VGA_COLOR_LIGHT_CYAN);
-    shell_puts("  power    : reboot halt", VGA_COLOR_LIGHT_GREY);
+    shell_puts("  power    : reboot halt poweroff", VGA_COLOR_LIGHT_GREY);
     shell_newline();
     shell_puts("  keys: Tab=complete  Up/Down=history  Left/Right=cursor", VGA_COLOR_DARK_GREY);
 }
@@ -779,6 +779,29 @@ static void cmd_halt(void)
     __asm__ volatile ("cli; hlt");
 }
 
+/* finally powerOFF!. */
+static void cmd_poweroff(void)
+{
+    disksync_flush();
+    serial_print("baSic_: poweroff\n");
+    shell_puts("powering off...", VGA_COLOR_LIGHT_RED);
+    shell_newline();
+    timer_sleep(500);
+
+    /*
+        for peace of my mind:
+        mov ax, 0x2000
+        mov dx, 0x604
+        out dx, ax
+    */
+    __asm__ volatile ("outw %w0, %w1" : : "a"((u16)0x2000), "Nd"((u16)0x604));
+
+    __asm__ volatile ("outw %w0, %w1" : : "a"((u16)0x0|0x2000), "Nd"((u16)0xB004));
+
+    /* if still running just halt */
+    __asm__ volatile ("cli; hlt");
+}
+
 static void dispatch(void)
 {
     cmd_buf[cmd_len]='\0';
@@ -805,6 +828,8 @@ static void dispatch(void)
     if (!strcmp(cmd_buf,"shoot"))    { cmd_shoot();   return; }
     if (!strcmp(cmd_buf,"reboot"))   { cmd_reboot();  return; }
     if (!strcmp(cmd_buf,"halt"))     { cmd_halt();    return; }
+
+    if (!strcmp(cmd_buf, "poweroff")) { cmd_poweroff(); return; }
 
     if (!strncmp(cmd_buf,"echo ",   5)) { cmd_echo(cmd_buf+5);    return; }
     if (!strncmp(cmd_buf,"calc ",   5)) { cmd_calc(cmd_buf+5);    return; }
