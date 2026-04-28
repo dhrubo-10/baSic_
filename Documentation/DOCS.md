@@ -249,7 +249,7 @@ Round-robin, 10ms quantum. `sched_tick()` called from timer IRQ. Saves current p
 
 ### Syscall Interface
 
-`int 0x80`, DPL=3. `eax` = number, `ebx/ecx/edx` = args. Return in `eax`. Implemented: exit(0), write(1), read(2), open(3), close(4), getpid(5), getenv(6), sleep(7), yield(8), kill(9), uptime(10), fork(11), wait(12), exec(13), getppid(14), sbrk(15): grows userspace heap from base 0x700000 up to 0x800000.
+`int 0x80`, DPL=3. `eax` = number, `ebx/ecx/edx` = args. Return in `eax`. Implemented: exit(0), write(1), read(2), open(3), close(4), getpid(5), getenv(6), sleep(7), yield(8), kill(9), uptime(10), fork(11), wait(12), exec(13), getppid(14), sbrk(15): grows userspace heap from base 0x700000 up to 0x800000, sigaction(16), sigreturn(17), pipe(18), dup2(19), sigmask(20).
 
 ### ELF Loader
 
