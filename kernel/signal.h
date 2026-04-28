@@ -10,6 +10,9 @@
 
 #include "../include/types.h"
 
+#define SIG_DFL  0   /*set default, */
+#define SIG_IGN  1  // ingore
+
 #define SIGTERM   1
 #define SIGKILL   2
 #define SIGSTOP   3
@@ -24,5 +27,8 @@ typedef void (*sighandler_t)(int signo);
 void signal_init(void);
 void signal_send(u32 pid, int signo);
 void signal_dispatch(u32 pid);
+void signal_set_handler(u32 pid, int signo, sighandler_t handler);
+sighandler_t signal_get_handler(u32 pid, int signo);
+void signal_set_mask(u32 pid, i32 how, u8 mask);
 
 #endif

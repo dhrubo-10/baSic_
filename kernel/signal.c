@@ -14,7 +14,9 @@
 typedef struct {
     u32 pid;
     u8  pending;    /* bitmask of pending signals */
+    u8  mask;
     u8  used;
+    sighandler_t handlers[SIG_MAX];
 } sig_entry_t;
 
 #define SIG_TABLE_SIZE  16
@@ -52,6 +54,31 @@ void signal_send(u32 pid, int signo)
     }
 }
 
+void signal_set_handler(u32 pid, int signo, sighandler_t handler)
+{
+    if (signo < 1 || signo >= SIG_MAX) return;
+    sig_entry_t *e = find_or_alloc(pid);
+    if (e) e->handlers[signo - 1] = handler;
+}
+
+sighandler_t signal_get_handler(u32 pid, int signo)
+{
+    if (signo < 1 || signo >= SIG_MAX) return NULL;
+    for (int i = 0; i < SIG_TABLE_SIZE; i++)
+        if (sig_table[i].used && sig_table[i].pid == pid)
+            return sig_table[i].handlers[signo - 1];
+    return NULL;
+}
+
+void signal_set_mask(u32 pid, i32 how, u8 mask)
+{
+    sig_entry_t *e = find_or_alloc(pid);
+    if (!e) return;
+    if (how == 0) e->mask |= mask;       /* 0 */
+    else if (how == 1) e->mask &= ~mask; /* 1 */
+    else if (how == 2) e->mask  = mask;  /* 2 */ /* extern syscall mental model "in case u dont get it" */
+}
+
 void signal_dispatch(u32 pid)
 {
     sig_entry_t *e = NULL;
@@ -62,14 +89,21 @@ void signal_dispatch(u32 pid)
 
     for (int s = 1; s < SIG_MAX; s++) {
         if (!(e->pending & (1 << (s - 1)))) continue;
+        if (e->mask & (1 << (s - 1))) continue;  
         e->pending &= ~(u8)(1 << (s - 1));
+
+        if (e->handlers[s - 1] &&
+            (usize)e->handlers[s - 1] > 1) {
+            e->handlers[s - 1](s);
+            continue;
+        }
 
         process_t *proc = proc_current();
         switch (s) {
         case SIGKILL:
         case SIGTERM:
             kprintf("[signal] pid %d terminated by signal %d\n", pid, s);
-            if (proc) proc->state = PROC_DEAD;
+            if (proc) { proc->exit_code = -s; proc->state = PROC_ZOMBIE; }
             break;
         case SIGSTOP:
             kprintf("[signal] pid %d stopped\n", pid);
@@ -78,6 +112,9 @@ void signal_dispatch(u32 pid)
         case SIGCONT:
             kprintf("[signal] pid %d continued\n", pid);
             if (proc) proc->state = PROC_READY;
+            break;
+        case SIGCHLD:
+            kprintf("[signal] pid %d got SIGCHLD\n", pid);
             break;
         default:
             kprintf("[signal] pid %d: unhandled signal %d\n", pid, s);

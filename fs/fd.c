@@ -12,6 +12,49 @@
 
 static fd_entry_t fd_table[FD_MAX];
 
+
+#define PIPE_MAX 8
+
+static pipe_t pipe_pool[PIPE_MAX];
+static u8     pipe_used[PIPE_MAX];
+
+int fd_open_pipe(pipe_t *p, int write_end)
+{
+    for (int i = 0; i < FD_MAX; i++) {
+        if (!fd_table[i].open) {
+            fd_table[i].open          = 1;
+            fd_table[i].is_pipe       = 1;
+            fd_table[i].pipe          = p;
+            fd_table[i].pipe_write_end = (u8)write_end;
+            fd_table[i].node          = NULL;
+            fd_table[i].offset        = 0;
+            return i;
+        }
+    }
+    return -1;
+}
+
+pipe_t *pipe_alloc(void)
+{
+    for (int i = 0; i < PIPE_MAX; i++) {
+        if (!pipe_used[i]) {
+            pipe_used[i] = 1;
+            pipe_init(&pipe_pool[i]);
+            return &pipe_pool[i];
+        }
+    }
+    return NULL;
+}
+
+int fd_dup2(int oldfd, int newfd)
+{
+    if (oldfd < 0 || oldfd >= FD_MAX || !fd_table[oldfd].open) return -1;
+    if (newfd < 0 || newfd >= FD_MAX) return -1;
+    if (fd_table[newfd].open) fd_close(newfd);
+    fd_table[newfd] = fd_table[oldfd];
+    return newfd;
+}
+
 void fd_init(void)
 {
     memset(fd_table, 0, sizeof(fd_table));
@@ -44,6 +87,8 @@ int fd_read(int fd, u8 *buf, u32 size)
 {
     if (fd < 0 || fd >= FD_MAX || !fd_table[fd].open) return -1;
     fd_entry_t *e = &fd_table[fd];
+    if (e->is_pipe)
+        return (int)pipe_read(e->pipe, buf, size);
     u32 n = vfs_read(e->node, e->offset, size, buf);
     e->offset += n;
     return (int)n;
@@ -53,6 +98,8 @@ int fd_write(int fd, u8 *buf, u32 size)
 {
     if (fd < 0 || fd >= FD_MAX || !fd_table[fd].open) return -1;
     fd_entry_t *e = &fd_table[fd];
+    if (e->is_pipe)
+        return (int)pipe_write(e->pipe, buf, size);
     u32 n = vfs_write(e->node, e->offset, size, buf);
     e->offset += n;
     return (int)n;

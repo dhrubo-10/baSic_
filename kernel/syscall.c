@@ -168,6 +168,55 @@ static i32 sys_exec(const char *path)
     return (i32)proc->pid;
 }
 
+static i32 sys_sigaction(i32 signo, u32 handler)
+{
+    process_t *p = proc_current();
+    if (!p) return -1;
+    signal_set_handler(p->pid, signo, (sighandler_t)handler);
+    return 0;
+}
+
+static i32 sys_sigreturn(void)
+{
+    /* will work after userspace. */
+    return 0;
+}
+
+static i32 sys_pipe(i32 *fds)
+{
+    pipe_t *p = pipe_alloc();
+    if (!p) return -1;
+
+    int rfd = fd_open_pipe(p, 0);   /* reading end */
+    int wfd = fd_open_pipe(p, 1);      /* write end. */
+    if (rfd < 0 || wfd < 0) return -1;
+
+    fds[0] = rfd;
+    fds[1] = wfd;
+    return 0;
+}
+
+static i32 sys_dup2(i32 oldfd, i32 newfd)
+{
+    return fd_dup2(oldfd, newfd);
+}
+
+static i32 sys_sigmask(i32 how, u8 mask)
+{
+    /*
+      mental model: 
+      0 = block, 
+      1 = unblock n
+      2 = set 
+    **/
+
+    process_t *p = proc_current();
+    if (!p) return -1;
+    extern void signal_set_mask(u32 pid, i32 how, u8 mask);
+    signal_set_mask(p->pid, how, mask);
+    return 0;
+}
+
 void syscall_handler(registers_t *regs)
 {
     i32 ret = -1;
@@ -188,6 +237,11 @@ void syscall_handler(registers_t *regs)
     case SYS_EXEC:    ret = sys_exec((const char *)regs->ebx);                              break;
     case SYS_GETPPID: ret = sys_getppid();                                                  break;
     case SYS_SBRK:    ret = sys_sbrk((i32)regs->ebx);                                       break;
+    case SYS_SIGACTION: ret = sys_sigaction((i32)regs->ebx, regs->ecx);                     break; /* not aligning "ret" with previous ones, seems lot work for now -,- */
+    case SYS_SIGRETURN: ret = sys_sigreturn();                                              break;
+    case SYS_PIPE:      ret = sys_pipe((i32 *)regs->ebx);                                   break;
+    case SYS_DUP2:      ret = sys_dup2((i32)regs->ebx, (i32)regs->ecx);                     break;
+    case SYS_SIGMASK:   ret = sys_sigmask((i32)regs->ebx, (u8)regs->ecx);                   break;
     default:
         kprintf("[WARN] unknown syscall %d\n", regs->eax);
         ret = -1;
