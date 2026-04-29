@@ -13,8 +13,9 @@ if [ ! -f "$IMAGE" ]; then
 fi
 
 QEMU_ARGS=(
-    -drive "format=raw,file=$IMAGE,index=0,media=disk" # boot from raw disk image
-    -m 32M                                               # 32 MB RAM (like early Linux)
+    -drive "format=raw,file=$IMAGE,if=ide,index=0,media=disk"
+    -drive "format=raw,file=disk.img,if=ide,index=3,media=disk"
+    -m 32M
 )
 
 if [ "$MODE" = "debug" ]; then
