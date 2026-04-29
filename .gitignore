@@ -10,4 +10,5 @@ build/
 
 
 .DS_Store
-Thumbs.db
+Thumbs.dbdisk.img
+init.cfg
