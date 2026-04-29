@@ -8,6 +8,7 @@
 #include "kprintf.h"
 #include "../kernel/vga.h"
 #include "../include/types.h"
+#include "../kernel/klog.h"
 
 /* va_list without stdarg.h — x86 cdecl: args pushed right-to-left on stack */
 typedef u8 *va_list;
@@ -91,6 +92,9 @@ void kprintf(const char *fmt, ...)
 
         fmt++;
     }
+    /* also log to klog ring buffer */
+    /* rebuild the string — simplest: just log the fmt for now */
+    klog_write(fmt);   /* temporary — full formatted string needs a buffer */
 
     va_end(ap);
 }
