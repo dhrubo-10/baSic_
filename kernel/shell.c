@@ -52,6 +52,7 @@ static char history[HISTORY_SIZE][CMD_BUF_SIZE];
 static int  history_count = 0;
 static int  history_idx   = -1;
 static int  shell_row     = TERM_TOP;
+static void shell_newline(void);   
 
 static inline void put(int col, int row, char c, u8 fg, u8 bg)
 {
@@ -121,32 +122,38 @@ static void draw_status(void)
     str_at(68, STATUS_ROW, ubuf, VGA_COLOR_YELLOW, VGA_COLOR_DARK_GREY);
 }
 
+// static void shell_splash(void)
+// {
+//     vga_clear();
+
+//     /* full-screen centered splash */
+//     u8 c1 = VGA_COLOR_LIGHT_CYAN;
+//     u8 c2 = VGA_COLOR_WHITE;
+//     u8 c4 = VGA_COLOR_DARK_GREY;
+//     u8 bk = VGA_COLOR_BLACK;
+
+//     str_at(18, 7,  "  _               _      ", c1, bk);
+//     str_at(18, 8,  " | |__   __ _ ___(_) ___ ", c1, bk);
+//     str_at(18, 9,  " | '_ \\ / _` / __| |/ __|", c1, bk);
+//     str_at(18, 10, " | |_) | (_| \\__ \\ | (__ ", c1, bk);
+//     str_at(18, 11, " |_.__/ \\__,_|___/_|\\___|", c1, bk);
+
+//     str_at(34, 13, "v1.0",               c2, bk);
+
+//     /* decorative separator */
+//     for (int col = 10; col < 70; col++)
+//         put(col, 16, '-', c4, bk);
+
+//     str_at(23, 18, "booting baSic_...", c4, bk);
+
+//     timer_sleep(2000);
+//     vga_clear();
+// }
+
 static void shell_splash(void)
 {
     vga_clear();
-
-    /* full-screen centered splash */
-    u8 c1 = VGA_COLOR_LIGHT_CYAN;
-    u8 c2 = VGA_COLOR_WHITE;
-    u8 c4 = VGA_COLOR_DARK_GREY;
-    u8 bk = VGA_COLOR_BLACK;
-
-    str_at(18, 7,  "  _               _      ", c1, bk);
-    str_at(18, 8,  " | |__   __ _ ___(_) ___ ", c1, bk);
-    str_at(18, 9,  " | '_ \\ / _` / __| |/ __|", c1, bk);
-    str_at(18, 10, " | |_) | (_| \\__ \\ | (__ ", c1, bk);
-    str_at(18, 11, " |_.__/ \\__,_|___/_|\\___|", c1, bk);
-
-    str_at(34, 13, "v1.0",               c2, bk);
-
-    /* decorative separator */
-    for (int col = 10; col < 70; col++)
-        put(col, 16, '-', c4, bk);
-
-    str_at(23, 18, "booting baSic_...", c4, bk);
-
-    timer_sleep(2000);
-    vga_clear();
+    /* splash disabled for debugging */
 }
 
 static void scroll(void)
@@ -158,7 +165,6 @@ static void scroll(void)
     if (shell_row > TERM_BOT) shell_row = TERM_BOT;
 }
 
-static void shell_newline(void);   
 static void shell_puts(const char *s, u8 fg)
 {
     int col = 0;
@@ -802,6 +808,27 @@ static void cmd_poweroff(void)
     __asm__ volatile ("cli; hlt");
 }
 
+static void cmd_alias(void)
+{
+    int found = 0;
+    for (int i = 0; i < ALIAS_MAX; i++) {
+        if (alias_table[i].used) {
+            char line[ALIAS_NAME_MAX + ALIAS_CMD_MAX + 6];
+            int j = 0;
+            const char *n = alias_table[i].name;
+            const char *c = alias_table[i].cmd;
+            while (*n) line[j++] = *n++;
+            line[j++] = ' '; line[j++] = '-'; line[j++] = '>'; line[j++] = ' ';
+            while (*c) line[j++] = *c++;
+            line[j] = '\0';
+            shell_puts(line, VGA_COLOR_WHITE);
+            shell_newline();
+            found++;
+        }
+    }
+    if (!found) { shell_puts("no aliases.", VGA_COLOR_LIGHT_GREY); shell_newline(); }
+}
+
 static void dispatch(void)
 {
     cmd_buf[cmd_len]='\0';
@@ -828,6 +855,7 @@ static void dispatch(void)
     if (!strcmp(cmd_buf,"shoot"))    { cmd_shoot();   return; }
     if (!strcmp(cmd_buf,"reboot"))   { cmd_reboot();  return; }
     if (!strcmp(cmd_buf,"halt"))     { cmd_halt();    return; }
+    if (!strcmp(cmd_buf, "alias"))   { cmd_alias(); return;   }
 
     if (!strcmp(cmd_buf, "poweroff")) { cmd_poweroff(); return; }
 
@@ -896,6 +924,16 @@ void shell_init(void)
 
     draw_status();
 
+    /* apply boot path from INIT.CFG */
+    const char *bp = disksync_boot_path();
+    if (bp && bp[0] == '/') {
+        vfs_node_t *bpnode = vfs_resolve(bp);
+        if (bpnode && (bpnode->flags & VFS_DIR)) {
+            strncpy(cwd, bp, VFS_PATH_MAX - 1);
+            draw_status();
+        }
+    }
+
     /* motd */
     vfs_node_t *etc = vfs_finddir(vfs_root(), "etc");
     if (etc) {
@@ -908,7 +946,6 @@ void shell_init(void)
 
     shell_puts("baSic_ v1.0  |  type 'help' for commands", VGA_COLOR_DARK_GREY);
     shell_newline();
-
     prompt_redraw();
 }
 
