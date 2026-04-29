@@ -46,6 +46,7 @@
 
 /* my country timezone = UTC+6 */
 #define TZ_OFFSET_H    6
+#define HISTORY_FILE "HISTORY"
 
 static char cwd[VFS_PATH_MAX] = "/";
 static char history[HISTORY_SIZE][CMD_BUF_SIZE];
@@ -207,6 +208,55 @@ static int build_prompt(char *out)
     out[i] = '\0';
     return i;
 }
+
+static void history_save(void)
+{
+    /* build one big buffer: each entry newline separated */
+    static u8 hbuf[HISTORY_SIZE * CMD_BUF_SIZE];
+    u32 off = 0;
+    int start = (history_count > HISTORY_SIZE) ? history_count - HISTORY_SIZE : 0;
+    for (int i = start; i < history_count; i++) {
+        const char *h = history[i % HISTORY_SIZE];
+        usize hlen = strlen(h);
+        if (off + hlen + 1 >= sizeof(hbuf)) break;
+        memcpy(hbuf + off, h, hlen);
+        off += hlen;
+        hbuf[off++] = '\n';
+    }
+    if (!off) return;
+    int n = fat12_write(HISTORY_FILE, hbuf, off);
+    if (n < 0)
+        kprintf("[shell] history save failed\n");
+    else
+        kprintf("[shell] history saved (%d bytes)\n", off);
+}
+
+static void history_load(void)
+{
+    static u8 hbuf[HISTORY_SIZE * CMD_BUF_SIZE];
+    int n = fat12_read(HISTORY_FILE, hbuf, sizeof(hbuf) - 1);
+    if (n <= 0) return;
+    hbuf[n] = '\0';
+
+    char *line = (char *)hbuf;
+    while (*line && history_count < HISTORY_SIZE * 2) {
+        char *end = line;
+        while (*end && *end != '\n') end++;
+        char saved = *end;
+        *end = '\0';
+        if (strlen(line) > 0) {
+            int slot = history_count % HISTORY_SIZE;
+            strncpy(history[slot], line, CMD_BUF_SIZE - 1);
+            history[slot][CMD_BUF_SIZE - 1] = '\0';
+            history_count++;
+        }
+        *end = saved;
+        line = (*end) ? end + 1 : end;
+    }
+    kprintf("[shell] history loaded (%d entries)\n", history_count);
+}
+
+
 
 static void prompt_redraw(void)
 {
@@ -769,6 +819,7 @@ static void cmd_about(void)
 
 static void cmd_reboot(void)
 {
+    history_save();
     disksync_flush();
     shell_puts("rebooting...", VGA_COLOR_YELLOW); shell_newline();
     serial_print("baSic_: reboot\n");
@@ -779,6 +830,7 @@ static void cmd_reboot(void)
 
 static void cmd_halt(void)
 {
+    history_save();
     disksync_flush();
     serial_print("baSic_: halt\n");
     shell_puts("halting...", VGA_COLOR_LIGHT_RED); shell_newline();
@@ -788,6 +840,7 @@ static void cmd_halt(void)
 /* finally powerOFF!. */
 static void cmd_poweroff(void)
 {
+    history_save();
     disksync_flush();
     serial_print("baSic_: poweroff\n");
     shell_puts("powering off...", VGA_COLOR_LIGHT_RED);
@@ -923,6 +976,7 @@ void shell_init(void)
     shell_row = TERM_TOP;
 
     draw_status();
+    history_load();
 
     /* apply boot path from INIT.CFG */
     const char *bp = disksync_boot_path();

@@ -361,6 +361,7 @@ Layout: rows 0–22 scroll terminal output, row 23 = prompt, row 24 = status bar
 | edit \<file\> | text editor |
 | shoot | shooter game |
 | about | about baSic_ |
+| alias | list active aliases from INIT.CFG |
 | ring3test | run first ring 3 user process |
 | reboot / halt | power |
 | poweroff | ACPI shutdown |
