@@ -691,6 +691,31 @@ static void cmd_touch(const char *name)
     shell_puts("OK", VGA_COLOR_LIGHT_GREEN); shell_newline();
 }
 
+static void cmd_rm(const char *name)
+{
+    if (!name||!*name) { shell_puts("usage: rm <file>", VGA_COLOR_LIGHT_RED); shell_newline(); return; }
+    vfs_node_t *parent = vfs_resolve(cwd);
+    if (!parent) { shell_puts("rm: bad cwd", VGA_COLOR_LIGHT_RED); shell_newline(); return; }
+    typedef struct { u8 *buf; u32 cap; vfs_node_t *ch[32]; u32 cnt; } rd_t;
+    rd_t *rd = (rd_t *)parent->inode;
+    if (!rd) { shell_puts("rm: bad dir", VGA_COLOR_LIGHT_RED); shell_newline(); return; }
+    for (u32 i = 0; i < rd->cnt; i++) {
+        if (!strcmp(rd->ch[i]->name, name)) {
+            if (rd->ch[i]->flags & VFS_DIR) {
+                shell_puts("rm: is a directory", VGA_COLOR_LIGHT_RED); shell_newline(); return;
+            }
+            /* ~~..shift children down */
+            for (u32 j = i; j < rd->cnt - 1; j++)
+                rd->ch[j] = rd->ch[j + 1];
+            rd->ch[rd->cnt - 1] = NULL;
+            rd->cnt--;
+            shell_puts("OK", VGA_COLOR_LIGHT_GREEN); shell_newline();
+            return;
+        }
+    }
+    shell_puts("rm: not found", VGA_COLOR_LIGHT_RED); shell_newline();
+}
+
 static void find_recurse(vfs_node_t *dir, const char *name, const char *path, int *found)
 {
     typedef struct { u8 *buf; u32 cap; vfs_node_t *ch[32]; u32 cnt; } rd_t;
@@ -925,6 +950,7 @@ static void dispatch(void)
     if (!strcmp(cmd_buf, "poweroff")) { cmd_poweroff(); return; }
 
     if (!strncmp(cmd_buf,"touch ",  6)) { cmd_touch(cmd_buf+6);   return; }
+    if (!strncmp(cmd_buf,"rm ",     3)) { cmd_rm(cmd_buf+3);      return; }
     if (!strncmp(cmd_buf,"echo ",   5)) { cmd_echo(cmd_buf+5);    return; }
     if (!strncmp(cmd_buf,"calc ",   5)) { cmd_calc(cmd_buf+5);    return; }
     if (!strncmp(cmd_buf,"color ",  6)) { cmd_color(cmd_buf+6);   return; }

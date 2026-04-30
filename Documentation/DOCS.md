@@ -351,6 +351,7 @@ Layout: rows 0–22 scroll terminal output, row 23 = prompt, row 24 = status bar
 | pwd / cd | navigate |
 | ls / cat / mkdir | ramfs |
 | touch <file>     | create empty file in ramfs |
+| rm <file>        | delete file from ramfs |
 | write \<f\> \<text\> | write to ramfs |
 | find / grep | search |
 | diskls | FAT12 root directory |
