@@ -716,6 +716,59 @@ static void cmd_rm(const char *name)
     shell_puts("rm: not found", VGA_COLOR_LIGHT_RED); shell_newline();
 }
 
+static void cmd_mv(const char *src, const char *dst)
+{
+    if (!src||!*src||!dst||!*dst)
+    { 
+        shell_puts("usage: mv <src> <dst>", VGA_COLOR_LIGHT_RED); 
+        shell_newline();
+        return; 
+    }
+    vfs_node_t *parent = vfs_resolve(cwd);
+
+    if (!parent) 
+    { 
+        shell_puts("mv: bad cwd", VGA_COLOR_LIGHT_RED); 
+        shell_newline(); 
+        return; 
+    }
+
+    vfs_node_t *node = vfs_finddir(parent, src);
+    if (!node) 
+    { 
+        shell_puts("mv: src not found", VGA_COLOR_LIGHT_RED); 
+        shell_newline(); return; 
+    }
+    strncpy(node->name, dst, VFS_NAME_MAX - 1);
+    node->name[VFS_NAME_MAX - 1] = '\0';
+    shell_puts("OK", VGA_COLOR_LIGHT_GREEN); shell_newline();
+}
+
+static void cmd_cp(const char *src, const char *dst)
+{
+    if (!src||!*src||!dst||!*dst) 
+    { 
+        shell_puts("usage: cp <src> <dst>", VGA_COLOR_LIGHT_RED); 
+        shell_newline(); return; 
+    }
+    vfs_node_t *parent = vfs_resolve(cwd);
+    if (!parent) { shell_puts("cp: bad cwd", VGA_COLOR_LIGHT_RED); shell_newline(); return; }
+    vfs_node_t *snode = vfs_finddir(parent, src);
+    if (!snode||!(snode->flags&VFS_FILE)) { shell_puts("cp: src not found", VGA_COLOR_LIGHT_RED); shell_newline(); return; }
+    vfs_node_t *dnode = vfs_finddir(parent, dst);
+    if (!dnode) dnode = ramfs_mkfile(parent, dst);
+    if (!dnode) { shell_puts("cp: failed to create dst", VGA_COLOR_LIGHT_RED); shell_newline(); return; }
+
+    /* here we do copy contents */
+    u8 tmp[128]; u32 off = 0; u32 n;
+    dnode->length = 0;
+    while ((n = vfs_read(snode, off, sizeof(tmp), tmp)) > 0) {
+        vfs_write(dnode, off, n, tmp);
+        off += n;
+    }
+    shell_puts("OK", VGA_COLOR_LIGHT_GREEN); shell_newline();
+}
+
 static void find_recurse(vfs_node_t *dir, const char *name, const char *path, int *found)
 {
     typedef struct { u8 *buf; u32 cap; vfs_node_t *ch[32]; u32 cnt; } rd_t;
@@ -948,6 +1001,32 @@ static void dispatch(void)
     if (!strcmp(cmd_buf, "alias"))   { cmd_alias();   return; }
 
     if (!strcmp(cmd_buf, "poweroff")) { cmd_poweroff(); return; }
+
+    if (!strncmp(cmd_buf,"cp ",   3)) {
+        char *sp = cmd_buf+3; while(*sp&&*sp!=' ') sp++;
+        if (*sp==' ')
+        {
+            *sp='\0';cmd_cp(cmd_buf+3,sp+1);
+        }
+        else {
+            shell_puts("usage: cp <src> <dst>", VGA_COLOR_LIGHT_RED); 
+            shell_newline(); 
+        }
+    return;
+    }
+
+    if (!strncmp(cmd_buf,"mv ",   3)) {
+        char *sp = cmd_buf+3; 
+        while(*sp&&*sp!=' ') sp++;
+        if (*sp==' ')
+            {
+                *sp='\0';cmd_mv(cmd_buf+3,sp+1);
+            }
+        else { 
+            shell_puts("usage: mv <src> <dst>", VGA_COLOR_LIGHT_RED); shell_newline(); 
+        }
+        return;
+    }
 
     if (!strncmp(cmd_buf,"touch ",  6)) { cmd_touch(cmd_buf+6);   return; }
     if (!strncmp(cmd_buf,"rm ",     3)) { cmd_rm(cmd_buf+3);      return; }
