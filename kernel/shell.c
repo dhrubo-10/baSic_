@@ -374,6 +374,7 @@ static void tab_complete(void)
         "uptime","time","mem","sysinfo","dmesg","top","ps","kill","spawn",
         "history","pwd","cd","ls","cat","write","mkdir","find","grep",
         "diskls","diskcat","diskwrite","diskdel","disksync","chmod",
+        "touch","rm","mv","cp",
         "edit","shoot","about","reboot","halt", NULL
     };
     cmd_buf[cmd_len] = '\0';
@@ -410,7 +411,7 @@ static void cmd_help(void)
     shell_puts("  math     : calc", VGA_COLOR_LIGHT_GREY);
     shell_puts("  display  : color", VGA_COLOR_LIGHT_GREY);
     shell_puts("  nav      : pwd cd ls", VGA_COLOR_LIGHT_GREY);
-    shell_puts("  files    : cat write mkdir find grep edit", VGA_COLOR_LIGHT_GREY);
+    shell_puts("  files    : cat write mkdir find grep edit touch rm mv cp", VGA_COLOR_LIGHT_GREY);
     shell_puts("  disk     : diskls diskcat diskwrite diskdel disksync chmod", VGA_COLOR_LIGHT_GREY);
     shell_puts("  fun      : shoot", VGA_COLOR_LIGHT_CYAN);
     shell_puts("  power    : reboot halt poweroff", VGA_COLOR_LIGHT_GREY);
