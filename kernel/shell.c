@@ -718,29 +718,37 @@ static void cmd_rm(const char *name)
 
 static void cmd_mv(const char *src, const char *dst)
 {
-    if (!src||!*src||!dst||!*dst)
+    if (!src||!*src||!dst||!*dst) 
     { 
         shell_puts("usage: mv <src> <dst>", VGA_COLOR_LIGHT_RED); 
-        shell_newline();
-        return; 
-    }
-    vfs_node_t *parent = vfs_resolve(cwd);
-
-    if (!parent) 
-    { 
-        shell_puts("mv: bad cwd", VGA_COLOR_LIGHT_RED); 
-        shell_newline(); 
-        return; 
-    }
-
-    vfs_node_t *node = vfs_finddir(parent, src);
-    if (!node) 
-    { 
-        shell_puts("mv: src not found", VGA_COLOR_LIGHT_RED); 
         shell_newline(); return; 
     }
-    strncpy(node->name, dst, VFS_NAME_MAX - 1);
-    node->name[VFS_NAME_MAX - 1] = '\0';
+    vfs_node_t *parent = vfs_resolve(cwd);
+    if (!parent) { shell_puts("mv: bad cwd", VGA_COLOR_LIGHT_RED); shell_newline(); return; }
+    vfs_node_t *node = vfs_finddir(parent, src);
+    if (!node) { shell_puts("mv: src not found", VGA_COLOR_LIGHT_RED); shell_newline(); return; }
+
+    /* check if dst is an existing directory if yes.. move into it */
+    vfs_node_t *dstdir = vfs_finddir(parent, dst);
+    if (dstdir && (dstdir->flags & VFS_DIR)) {
+        /* remove from current parent */
+        typedef struct { u8 *buf; u32 cap; vfs_node_t *ch[32]; u32 cnt; } rd_t;
+        rd_t *rd = (rd_t *)parent->inode;
+        for (u32 i = 0; i < rd->cnt; i++) {
+            if (rd->ch[i] == node) {
+                for (u32 j = i; j < rd->cnt - 1; j++) rd->ch[j] = rd->ch[j+1];
+                rd->ch[rd->cnt-1] = NULL; rd->cnt--; break;
+            }
+        }
+        /* add to dst directory */
+        rd_t *drd = (rd_t *)dstdir->inode;
+        if (drd->cnt < 32) { drd->ch[drd->cnt++] = node; node->parent = dstdir; }
+        else { shell_puts("mv: dst dir full", VGA_COLOR_LIGHT_RED); shell_newline(); return; }
+    } else {
+        /* just rename */
+        strncpy(node->name, dst, VFS_NAME_MAX - 1);
+        node->name[VFS_NAME_MAX - 1] = '\0';
+    }
     shell_puts("OK", VGA_COLOR_LIGHT_GREEN); shell_newline();
 }
 
@@ -754,12 +762,24 @@ static void cmd_cp(const char *src, const char *dst)
     vfs_node_t *parent = vfs_resolve(cwd);
     if (!parent) { shell_puts("cp: bad cwd", VGA_COLOR_LIGHT_RED); shell_newline(); return; }
     vfs_node_t *snode = vfs_finddir(parent, src);
-    if (!snode||!(snode->flags&VFS_FILE)) { shell_puts("cp: src not found", VGA_COLOR_LIGHT_RED); shell_newline(); return; }
-    vfs_node_t *dnode = vfs_finddir(parent, dst);
-    if (!dnode) dnode = ramfs_mkfile(parent, dst);
+    if (!snode||!(snode->flags&VFS_FILE)) 
+    { 
+        shell_puts("cp: src not found", VGA_COLOR_LIGHT_RED); 
+        shell_newline(); return; 
+    }
+
+    /* check if dst is an existing directory.. if yes copy into it with same name */
+    vfs_node_t *dstdir = vfs_finddir(parent, dst);
+    vfs_node_t *dnode;
+    if (dstdir && (dstdir->flags & VFS_DIR)) {
+        dnode = vfs_finddir(dstdir, src);
+        if (!dnode) dnode = ramfs_mkfile(dstdir, src);
+    } else {
+        dnode = vfs_finddir(parent, dst);
+        if (!dnode) dnode = ramfs_mkfile(parent, dst);
+    }
     if (!dnode) { shell_puts("cp: failed to create dst", VGA_COLOR_LIGHT_RED); shell_newline(); return; }
 
-    /* here we do copy contents */
     u8 tmp[128]; u32 off = 0; u32 n;
     dnode->length = 0;
     while ((n = vfs_read(snode, off, sizeof(tmp), tmp)) > 0) {
