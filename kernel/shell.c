@@ -374,7 +374,7 @@ static void tab_complete(void)
         "uptime","time","mem","sysinfo","dmesg","top","ps","kill","spawn",
         "history","pwd","cd","ls","cat","write","mkdir","find","grep",
         "diskls","diskcat","diskwrite","diskdel","disksync","chmod",
-        "touch","rm","mv","cp",
+        "touch","rm","mv","cp","wc","head","tail",
         "edit","shoot","about","reboot","halt", NULL
     };
     cmd_buf[cmd_len] = '\0';
@@ -411,7 +411,7 @@ static void cmd_help(void)
     shell_puts("  math     : calc", VGA_COLOR_LIGHT_GREY);
     shell_puts("  display  : color", VGA_COLOR_LIGHT_GREY);
     shell_puts("  nav      : pwd cd ls", VGA_COLOR_LIGHT_GREY);
-    shell_puts("  files    : cat write mkdir find grep edit touch rm mv cp", VGA_COLOR_LIGHT_GREY);
+    shell_puts("  files    : cat write mkdir find grep edit touch rm mv cp wc head tail", VGA_COLOR_LIGHT_GREY);
     shell_puts("  disk     : diskls diskcat diskwrite diskdel disksync chmod", VGA_COLOR_LIGHT_GREY);
     shell_puts("  fun      : shoot", VGA_COLOR_LIGHT_CYAN);
     shell_puts("  power    : reboot halt poweroff", VGA_COLOR_LIGHT_GREY);
@@ -805,6 +805,100 @@ static void find_recurse(vfs_node_t *dir, const char *name, const char *path, in
     }
 }
 
+static void cmd_wc(const char *path)
+{
+    if (!path||!*path) { 
+        shell_puts("usage: wc <file>", VGA_COLOR_LIGHT_RED); 
+        shell_newline(); 
+        return; 
+    }
+    char full[VFS_PATH_MAX]; make_full(full, path);
+    vfs_node_t *node = vfs_resolve(full);
+    if (!node||!(node->flags&VFS_FILE)) { shell_puts("wc: not found", VGA_COLOR_LIGHT_RED); shell_newline(); return; }
+    u8 tmp[128]; u32 off=0,n;
+    u32 lines=0, words=0, bytes=0;
+    int in_word = 0;
+    while ((n = vfs_read(node, off, sizeof(tmp), tmp)) > 0) {
+        for (u32 i = 0; i < n; i++) {
+            u8 c = tmp[i];
+            bytes++;
+            if (c == '\n') lines++;
+            if (c == ' '||c == '\t'||c == '\n') in_word = 0;
+            else if (!in_word) { in_word = 1; words++; }
+        }
+        off += n;
+    }
+    /* print the lines, words & bytes. */
+    char buf[64]; int bi = 0;
+    /* lines go here. */
+    char tmp2[12]; int ti = 10; tmp2[11]='\0';
+    u32 v = lines;
+    if (!v){tmp2[ti--]='0';}else{while(v){tmp2[ti--]='0'+v%10;v/=10;}}
+    const char *tp=&tmp2[ti+1]; while(*tp) buf[bi++]=*tp++;
+    buf[bi++]=' ';
+    /* word go here */
+    ti=10; v=words;
+    if (!v){tmp2[ti--]='0';}else{while(v){tmp2[ti--]='0'+v%10;v/=10;}}
+    tp=&tmp2[ti+1]; while(*tp) buf[bi++]=*tp++;
+    buf[bi++]=' ';
+    /* and now bytes */
+    ti=10; v=bytes;
+    if (!v){tmp2[ti--]='0';}else{while(v){tmp2[ti--]='0'+v%10;v/=10;}}
+    tp=&tmp2[ti+1]; while(*tp) buf[bi++]=*tp++;
+    buf[bi++]=' '; const char *pp=path; while(*pp) buf[bi++]=*pp++;
+    buf[bi]='\0';
+    shell_puts(buf, VGA_COLOR_WHITE); shell_newline();
+}
+
+static void cmd_head(const char *path, int count)
+{
+    if (!path||!*path) { shell_puts("usage: head <file>", VGA_COLOR_LIGHT_RED); shell_newline(); return; }
+    char full[VFS_PATH_MAX]; make_full(full, path);
+    vfs_node_t *node = vfs_resolve(full);
+    if (!node||!(node->flags&VFS_FILE)) { shell_puts("head: not found", VGA_COLOR_LIGHT_RED); shell_newline(); return; }
+    u8 tmp[128]; u32 off=0; u32 n;
+    int lines = 0;
+    char line[128]; int lpos = 0;
+    while (lines < count && (n = vfs_read(node, off, sizeof(tmp), tmp)) > 0) {
+        for (u32 i = 0; i < n && lines < count; i++) {
+            char c = (char)tmp[i];
+            if (c == '\n') {
+                line[lpos] = '\0';
+                shell_puts(line, VGA_COLOR_WHITE); shell_newline();
+                lpos = 0; lines++;
+            } else if (lpos < 127) line[lpos++] = c;
+        }
+        off += n;
+    }
+}
+
+static void cmd_tail(const char *path, int count)
+{
+    if (!path||!*path) { shell_puts("usage: tail <file>", VGA_COLOR_LIGHT_RED); shell_newline(); return; }
+    char full[VFS_PATH_MAX]; make_full(full, path);
+    vfs_node_t *node = vfs_resolve(full);
+    if (!node||!(node->flags&VFS_FILE)) { shell_puts("tail: not found", VGA_COLOR_LIGHT_RED); shell_newline(); return; }
+    /* what we are donig here is : just collect all the lines and take into a ring */
+    char ring[32][128]; int rcount = 0;
+    u8 tmp[128]; u32 off=0; u32 n;
+    char line[128]; int lpos = 0;
+    while ((n = vfs_read(node, off, sizeof(tmp), tmp)) > 0) {
+        for (u32 i = 0; i < n; i++) {
+            char c = (char)tmp[i];
+            if (c == '\n') {
+                line[lpos] = '\0';
+                strncpy(ring[rcount % 32], line, 127);
+                rcount++; lpos = 0;
+            } else if (lpos < 127) line[lpos++] = c;
+        }
+        off += n;
+    }
+    int start = (rcount > count) ? rcount - count : 0;
+    for (int i = start; i < rcount; i++) {
+        shell_puts(ring[i % 32], VGA_COLOR_WHITE); shell_newline();
+    }
+}
+
 static void cmd_find(const char *name)
 {
     if (!name||!*name) { shell_puts("usage: find <n>", VGA_COLOR_LIGHT_RED); shell_newline(); return; }
@@ -1048,6 +1142,10 @@ static void dispatch(void)
         }
         return;
     }
+    /* from now will use sizeof */
+    if (!strncmp(cmd_buf,"wc ",   3)) { cmd_wc(cmd_buf+3);             return; }
+    if (!strncmp(cmd_buf,"head ", 5)) { cmd_head(cmd_buf+5, 10);       return; }
+    if (!strncmp(cmd_buf,"tail ", 5)) { cmd_tail(cmd_buf+5, 10);       return; }
 
     if (!strncmp(cmd_buf,"touch ",  6)) { cmd_touch(cmd_buf+6);   return; }
     if (!strncmp(cmd_buf,"rm ",     3)) { cmd_rm(cmd_buf+3);      return; }
