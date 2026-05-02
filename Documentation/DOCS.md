@@ -356,6 +356,9 @@ Layout: rows 0–22 scroll terminal output, row 23 = prompt, row 24 = status bar
 | cp <src> <dst>   | copy file in ramfs |
 | write \<f\> \<text\> | write to ramfs |
 | find / grep | search |
+| wc <file>        | count lines, words, bytes |
+| head <file>      | print first 10 lines |
+| tail <file>      | print last 10 lines |
 | diskls | FAT12 root directory |
 | diskcat \<file\> | read from disk |
 | diskwrite \<f\> \<text\> | write to disk |
