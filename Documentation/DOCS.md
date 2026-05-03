@@ -330,6 +330,9 @@ copies a minimal x86 program blob to 0x500000 and enters ring 3. The program cal
 
 Layout: rows 0–22 scroll terminal output, row 23 = prompt, row 24 = status bar.
 
+### Shell scrips
+run <script> reads a file line by line from ramfs or FAT12 and passes each line through dispatch() just same as typing it at the prompt.
+
 ### Commands
 
 | Command | Description |
@@ -354,6 +357,7 @@ Layout: rows 0–22 scroll terminal output, row 23 = prompt, row 24 = status bar
 | rm <file>        | delete file from ramfs |
 | mv <src> <dst>   | rename file in ramfs |
 | cp <src> <dst>   | copy file in ramfs |
+| run <script>     | execute shell script |
 | write \<f\> \<text\> | write to ramfs |
 | find / grep | search |
 | wc <file>        | count lines, words, bytes |
