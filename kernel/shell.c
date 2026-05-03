@@ -54,6 +54,8 @@ static int  history_count = 0;
 static int  history_idx   = -1;
 static int  shell_row     = TERM_TOP;
 static void shell_newline(void);   
+static void shell_exec_line(char *line);
+static void dispatch(void);
 
 static inline void put(int col, int row, char c, u8 fg, u8 bg)
 {
@@ -412,6 +414,7 @@ static void cmd_help(void)
     shell_puts("  display  : color", VGA_COLOR_LIGHT_GREY);
     shell_puts("  nav      : pwd cd ls", VGA_COLOR_LIGHT_GREY);
     shell_puts("  files    : cat write mkdir find grep edit touch rm mv cp wc head tail", VGA_COLOR_LIGHT_GREY);
+    shell_puts("  script   : run", VGA_COLOR_LIGHT_GREY);
     shell_puts("  disk     : diskls diskcat diskwrite diskdel disksync chmod", VGA_COLOR_LIGHT_GREY);
     shell_puts("  fun      : shoot", VGA_COLOR_LIGHT_CYAN);
     shell_puts("  power    : reboot halt poweroff", VGA_COLOR_LIGHT_GREY);
@@ -1022,6 +1025,54 @@ static void cmd_about(void)
     shell_puts("  license : GPL v2", VGA_COLOR_WHITE); shell_newline();
 }
 
+/* shell scripts. */
+static void cmd_run(const char *path)
+{
+    if (!path||!*path) { shell_puts("usage: run <script>", VGA_COLOR_LIGHT_RED); shell_newline(); return; }
+    char full[VFS_PATH_MAX]; make_full(full, path);
+    vfs_node_t *node = vfs_resolve(full);
+    if (!node||!(node->flags&VFS_FILE)) {
+        /* do try FAT12 disk */
+        static u8 sbuf[1024];
+        int n = fat12_read(path, sbuf, sizeof(sbuf)-1);
+        if (n <= 0) { shell_puts("run: script not found", VGA_COLOR_LIGHT_RED); shell_newline(); return; }
+        sbuf[n] = '\0';
+        char *line = (char *)sbuf;
+        while (*line) {
+            char *end = line;
+            while (*end && *end != '\n') end++;
+            char saved = *end; *end = '\0';
+            if (line[0] && line[0] != '#') shell_exec_line(line);
+            *end = saved;
+            line = (*end) ? end + 1 : end;
+        }
+        return;
+    }
+    u8 sbuf[1024]; u32 n = vfs_read(node, 0, sizeof(sbuf)-1, sbuf);
+    sbuf[n] = '\0';
+    char *line = (char *)sbuf;
+    while (*line) {
+        char *end = line;
+        while (*end && *end != '\n') end++;
+        char saved = *end; *end = '\0';
+        if (line[0] && line[0] != '#') shell_exec_line(line);
+        *end = saved;
+        line = (*end) ? end + 1 : end;
+    }
+}
+
+static void shell_exec_line(char *line)
+{
+    usize len = strlen(line);
+    if (len >= CMD_BUF_SIZE) len = CMD_BUF_SIZE - 1;
+    memcpy(cmd_buf, line, len);
+    cmd_buf[len] = '\0';
+    cmd_len = (int)len;
+    dispatch();
+    cmd_len = 0;
+    memset(cmd_buf, 0, CMD_BUF_SIZE);
+}
+
 static void cmd_reboot(void)
 {
     history_save();
@@ -1147,6 +1198,7 @@ static void dispatch(void)
     if (!strncmp(cmd_buf,"head ", 5)) { cmd_head(cmd_buf+5, 10);       return; }
     if (!strncmp(cmd_buf,"tail ", 5)) { cmd_tail(cmd_buf+5, 10);       return; }
 
+    if (!strncmp(cmd_buf,"run ",    4)) { cmd_run(cmd_buf+4);     return; }
     if (!strncmp(cmd_buf,"touch ",  6)) { cmd_touch(cmd_buf+6);   return; }
     if (!strncmp(cmd_buf,"rm ",     3)) { cmd_rm(cmd_buf+3);      return; }
     if (!strncmp(cmd_buf,"echo ",   5)) { cmd_echo(cmd_buf+5);    return; }
