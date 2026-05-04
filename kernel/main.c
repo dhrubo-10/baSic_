@@ -73,6 +73,8 @@ void kmain(void)
     watchdog_init(30000);
 
     disk_init();
+    pci_init();
+    e1000_init();
     if (fat12_init())
         disksync_run_init();
 
