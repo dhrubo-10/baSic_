@@ -333,6 +333,12 @@ Layout: rows 0–22 scroll terminal output, row 23 = prompt, row 24 = status bar
 ### Shell scrips
 run <script> reads a file line by line from ramfs or FAT12 and passes each line through dispatch() just same as typing it at the prompt.
 
+### PCI
+PCI config space accessed via ports 0xCF8 (address) and 0xCFC (data).
+
+### Network (e1000)
+
+
 ### Commands
 
 | Command | Description |
