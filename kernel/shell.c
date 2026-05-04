@@ -27,6 +27,7 @@
 #include "profiler.h"
 #include "watchdog.h"
 #include "elf.h"
+#include "e1000.h"
 #include "../mm/pmm.h"
 #include "../fs/vfs.h"
 #include "../fs/ramfs.h"
@@ -376,7 +377,7 @@ static void tab_complete(void)
         "uptime","time","mem","sysinfo","dmesg","top","ps","kill","spawn",
         "history","pwd","cd","ls","cat","write","mkdir","find","grep",
         "diskls","diskcat","diskwrite","diskdel","disksync","chmod",
-        "touch","rm","mv","cp","wc","head","tail",
+        "touch","rm","mv","cp","wc","head","tail","netinfo",
         "edit","shoot","about","reboot","halt", NULL
     };
     cmd_buf[cmd_len] = '\0';
@@ -414,6 +415,7 @@ static void cmd_help(void)
     shell_puts("  display  : color", VGA_COLOR_LIGHT_GREY);
     shell_puts("  nav      : pwd cd ls", VGA_COLOR_LIGHT_GREY);
     shell_puts("  files    : cat write mkdir find grep edit touch rm mv cp wc head tail", VGA_COLOR_LIGHT_GREY);
+    shell_puts("  net      : netinfo", VGA_COLOR_LIGHT_GREY);
     shell_puts("  script   : run", VGA_COLOR_LIGHT_GREY);
     shell_puts("  disk     : diskls diskcat diskwrite diskdel disksync chmod", VGA_COLOR_LIGHT_GREY);
     shell_puts("  fun      : shoot", VGA_COLOR_LIGHT_CYAN);
@@ -1073,6 +1075,23 @@ static void shell_exec_line(char *line)
     memset(cmd_buf, 0, CMD_BUF_SIZE);
 }
 
+static void cmd_netinfo(void)
+{
+    u8 mac[6];
+    e1000_get_mac(mac);
+    char buf[48]; int i = 0;
+    const char *p = "MAC: "; while (*p) buf[i++] = *p++;
+    for (int j = 0; j < 6; j++) {
+        u8 b = mac[j];
+        buf[i++] = "0123456789abcdef"[b >> 4];
+        buf[i++] = "0123456789abcdef"[b & 0xF];
+        if (j < 5) buf[i++] = ':';
+    }
+    buf[i] = '\0';
+    shell_puts(buf, VGA_COLOR_LIGHT_CYAN);
+    shell_newline();
+}
+
 static void cmd_reboot(void)
 {
     history_save();
@@ -1165,6 +1184,7 @@ static void dispatch(void)
     if (!strcmp(cmd_buf,"reboot"))   { cmd_reboot();  return; }
     if (!strcmp(cmd_buf,"halt"))     { cmd_halt();    return; }
     if (!strcmp(cmd_buf, "alias"))   { cmd_alias();   return; }
+    if (!strcmp(cmd_buf, "netinfo")) { cmd_netinfo(); return; }
 
     if (!strcmp(cmd_buf, "poweroff")) { cmd_poweroff(); return; }
 
