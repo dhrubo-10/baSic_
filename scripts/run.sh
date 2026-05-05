@@ -15,6 +15,7 @@ fi
 QEMU_ARGS=(
     -drive "format=raw,file=$IMAGE,if=ide,index=0,media=disk"
     -drive "format=raw,file=disk.img,if=ide,index=3,media=disk"
+    -netdev user,id=net0 -device e1000,netdev=net0
     -m 32M
 )
 
