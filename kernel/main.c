@@ -29,6 +29,8 @@
 #include "disksync.h"
 #include "shell.h"
 #include "tss.h"
+#include "pci.h"
+#include "e1000.h"
 #include "userspace.h"
 #include "../mm/pmm.h"
 #include "../mm/vmm.h"

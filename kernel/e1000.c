@@ -10,6 +10,7 @@
 #include "pci.h"
 #include "../lib/kprintf.h"
 #include "../lib/string.h"
+#include "../mm/vmm.h"
 
 /* e1000  -> reg offsets */
 #define E1000_CTRL    0x0000
@@ -108,6 +109,10 @@ int e1000_init(void)
     mmio_base = bar0 & ~0xF;
 
     kprintf("[e1000] MMIO base: 0x%x\n", mmio_base);
+
+    /* we have to map the MMIO region into page tables. so that 128KB should cover all registers */
+    for (u32 off = 0; off < 0x20000; off += 0x1000)
+        vmm_map(mmio_base + off, mmio_base + off, 3);
 
     // reset */
     e1000_write(E1000_CTRL, e1000_read(E1000_CTRL) | CTRL_RST);

@@ -66,6 +66,7 @@ KERNEL_SRCS  := kernel/main.c      \
                 kernel/tss.c       \
                 kernel/userspace.c \
                 kernel/pci.c       \
+                kernel/e1000.c     \
 
 KERNEL_ASMS  := kernel/isr_stubs.asm    \
                 kernel/irq_stubs.asm    \
